@@ -1,0 +1,2071 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yong's Miniroom</title>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Nanum Gothic',sans-serif;background:#E8DDD4;min-height:100vh;display:flex;flex-direction:column;align-items:center;color:#555;user-select:none;image-rendering:auto}
+.banner{margin-top:14px;text-align:center}
+.banner h1{font-size:18px;font-weight:800;color:#8B6050;letter-spacing:1px;text-shadow:1px 1px 0 #fff}
+.banner .sub{font-size:11px;color:#A08070;margin-top:2px}
+.vc{margin-top:4px;font-size:10px;color:#A08070;background:rgba(255,255,255,.7);padding:2px 12px;border-radius:10px;display:inline-block}
+.room-wrap{margin-top:10px;padding:6px;background:#F5EDE5;border-radius:4px;border:3px solid #C8B8A8;box-shadow:2px 2px 0 #B0A090,inset 1px 1px 0 #fff}
+.room{width:820px;height:560px;position:relative;overflow:hidden;border-radius:2px;background:#C8DDF0}
+/* Pixel overlay for retro dot feel */
+.room::after{content:'';position:absolute;inset:0;z-index:50;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.02) 2px,rgba(0,0,0,.02) 4px);mix-blend-mode:multiply}
+/* Walls & Floor - flat pastels like real Cyworld */
+.wl{position:absolute;width:100%;height:100%;background:#FFDDE5;clip-path:polygon(50% 3.6%,6.1% 31.3%,6.1% 65.2%,50% 43.8%);z-index:1}
+.wl::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(180deg,transparent,transparent 18px,rgba(255,255,255,.3) 18px,rgba(255,255,255,.3) 20px);opacity:.5}
+.wr{position:absolute;width:100%;height:100%;background:#FFD0DB;clip-path:polygon(50% 3.6%,93.9% 31.3%,93.9% 65.2%,50% 43.8%);z-index:1}
+.wr::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(180deg,transparent,transparent 18px,rgba(255,255,255,.25) 18px,rgba(255,255,255,.25) 20px);opacity:.5}
+.wc{position:absolute;left:50%;top:3.6%;width:3px;height:40.2%;background:#C89098;z-index:2;transform:translateX(-1px)}
+/* Wood plank floor - Cyworld ref color #b78c71 */
+.fl{position:absolute;width:100%;height:100%;background:
+  repeating-linear-gradient(120deg,transparent,transparent 20px,rgba(120,80,50,.15) 20px,rgba(120,80,50,.15) 22px),
+  repeating-linear-gradient(60deg,transparent,transparent 20px,rgba(120,80,50,.10) 20px,rgba(120,80,50,.10) 22px),
+  repeating-linear-gradient(120deg,#c9a070 0px,#b78c71 10px,#c49a68 10px,#b08060 20px),
+  #b78c71;clip-path:polygon(50% 43.8%,6.1% 65.2%,50% 91.1%,93.9% 65.2%);z-index:3}
+/* Baseboards - solid colors */
+.bl{position:absolute;width:100%;height:100%;z-index:4;pointer-events:none}
+.bl::after{content:'';position:absolute;inset:0;background:var(--bl-bg, #bbb9b6);clip-path:polygon(50% 43.8%,6.1% 65.2%,6.1% 66.8%,50% 45.4%)}
+.br{position:absolute;width:100%;height:100%;z-index:4;pointer-events:none}
+.br::after{content:'';position:absolute;inset:0;background:var(--br-bg, #a8a6a2);clip-path:polygon(50% 43.8%,93.9% 65.2%,93.9% 66.8%,50% 45.4%)}
+
+/* SVG furniture layer */
+#fsvg{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;shape-rendering:crispEdges}
+#fsvg polygon{cursor:pointer;stroke-linejoin:miter}
+#fsvg polygon:hover{opacity:.85}
+#fsvg .face-top{stroke:#3a3428;stroke-width:1.2}
+#fsvg .face-left{stroke:#3a3428;stroke-width:1.2}
+#fsvg .face-right{stroke:#3a3428;stroke-width:1.2}
+
+/* Content overlays */
+.content-overlay{position:absolute;top:0;left:0;width:820px;height:560px;z-index:6;pointer-events:none}
+.content-overlay>*{pointer-events:auto}
+#framePhoto{position:absolute;object-fit:contain;background:#2a2018;display:none}
+#tvVideo{position:absolute;display:none;background:#000}
+#tvVideo::-webkit-media-controls{display:none!important}
+/* Retro TV */
+.tv-crt{position:absolute;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.08) 0px,rgba(0,0,0,.08) 1px,transparent 1px,transparent 3px);z-index:1;mix-blend-mode:multiply}
+.tv-controls{position:absolute;display:flex;align-items:center;gap:4px;padding:5px 8px;background:rgba(0,0,0,.75);border-radius:6px;z-index:20;pointer-events:auto;backdrop-filter:blur(4px);transform-origin:left center;transform:rotate(18.43deg)}
+.tv-btn{background:none;border:2px solid rgba(255,255,255,.6);color:#fff;border-radius:50%;width:22px;height:22px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit}
+.tv-btn:hover{background:rgba(255,255,255,.2)}
+.tv-progress{flex:1;height:4px;background:rgba(255,255,255,.2);border-radius:2px;cursor:pointer;position:relative;overflow:hidden}
+.tv-progress-fill{height:100%;background:linear-gradient(90deg,#E75480,#FF8FAB);border-radius:2px;width:0%;transition:width .1s}
+.tv-time{color:rgba(255,255,255,.7);font-size:7px;font-family:'Courier New',monospace;flex-shrink:0;letter-spacing:0.5px}
+.tv-vol{width:30px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;cursor:pointer;flex-shrink:0;position:relative;overflow:hidden}
+.tv-vol-fill{height:100%;background:#4ECDC4;border-radius:2px;width:70%}
+.tv-wrap{position:absolute;overflow:hidden;display:none}
+.frame-counter{position:absolute;background:rgba(0,0,0,.6);color:#fff;font-size:8px;padding:1px 4px;border-radius:3px;display:none;z-index:7}
+.frame-placeholder,.tv-placeholder{position:absolute;font-size:9px;color:rgba(255,255,255,.7);text-align:center;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.book-tooltip{position:fixed;background:rgba(0,0,0,.85);color:#fff;font-size:11px;padding:4px 10px;border-radius:6px;white-space:nowrap;display:none;z-index:9999;pointer-events:none;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+
+/* Avatar */
+.avatar{position:absolute;z-index:10;text-align:center}
+.avatar-bubble{display:inline-block;background:#fff;border:2px solid #555;border-radius:14px;padding:2px 12px;font-size:11px;font-weight:800;color:#333;margin-bottom:2px;box-shadow:1px 1px 0 #999;position:relative}
+.avatar-bubble::after{content:'';position:absolute;bottom:-6px;left:50%;width:8px;height:8px;background:#fff;border-right:2px solid #555;border-bottom:2px solid #555;transform:translateX(-50%) rotate(45deg)}
+/* ===== 미니미 Canvas 픽셀아트 ===== */
+.minimi{position:relative;width:64px;height:96px;margin:0 auto}
+.minimi canvas{image-rendering:pixelated;-ms-interpolation-mode:nearest-neighbor;display:block}
+.minimi-head{position:absolute;top:0;left:0;width:64px;height:40px;z-index:2;pointer-events:none}
+.minimi-head img{width:36px;height:36px;object-fit:cover;border-radius:50%;position:absolute;top:8px;left:14px;display:none;image-rendering:auto;border:2px solid #282018}
+.minimi-head.has-img img{display:block;z-index:10}
+.avatar-photo{display:none}
+.avatar-photo img{display:none}
+
+/* Friend avatar */
+.friend-avatar{display:none}
+.friend-delete{display:inline-block;width:16px;height:16px;background:#E75480;color:#fff;border-radius:50%;font-size:10px;line-height:16px;text-align:center;cursor:pointer;position:absolute;top:-4px;right:-4px;z-index:3;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.friend-delete:hover{background:#C4405A;transform:scale(1.1)}
+/* friend avatar colors are handled by drawMinimi palette */
+
+/* Chat */
+.chat-panel{position:absolute;bottom:8px;left:8px;z-index:20;width:260px;max-height:180px;background:rgba(255,248,240,.95);border:2px solid #D8C0B0;border-radius:3px;display:flex;flex-direction:column;box-shadow:2px 2px 0 rgba(0,0,0,.1)}
+.chat-log{flex:1;overflow-y:auto;padding:6px 8px;font-size:10px;max-height:120px}
+.chat-msg{margin-bottom:4px;line-height:1.3}
+.chat-msg b{color:#C06040}
+.chat-msg.friend b{color:#6080A0}
+.chat-input-wrap{display:flex;border-top:1px solid #D8C0B0;padding:4px}
+.chat-input-wrap input{flex:1;border:2px solid #D8C0B0;border-radius:2px;padding:3px 6px;font-size:10px;font-family:inherit;outline:none;background:#FFF8F0}
+.chat-input-wrap button{margin-left:4px;padding:3px 8px;background:#F0D8C8;border:2px solid #D8C0B0;border-radius:2px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;color:#8B6050}
+.speech-float{position:absolute;background:#fff;border:2px solid #555;border-radius:10px;padding:2px 8px;font-size:9px;font-weight:700;white-space:nowrap;z-index:16;animation:floatUp 3s forwards;pointer-events:none}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
+
+/* BGM */
+.bgm{position:absolute;bottom:8px;right:8px;z-index:20;background:rgba(255,248,240,.95);border:2px solid #D8C0B0;border-radius:3px;padding:4px 10px;font-size:10px;color:#8B7060;display:flex;align-items:center;gap:6px;box-shadow:2px 2px 0 rgba(0,0,0,.1)}
+.bgm-btn{background:#F0D8C8;border:2px solid #D8C0B0;border-radius:2px;padding:1px 6px;font-size:9px;font-weight:700;color:#8B6050;cursor:pointer;font-family:inherit}
+.bgm-title{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Theme transition */
+.wl,.wr,.fl,.room,.room-wrap{transition:background .8s ease}
+.wc,.bl::after,.br::after{transition:background .8s ease}
+
+/* AI Theme Modal */
+.ai-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center}
+.ai-modal.show{display:flex}
+.ai-modal-box{background:#fff;border-radius:16px;padding:24px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.ai-modal-box h3{color:#E75480;margin-bottom:8px;font-size:16px}
+.ai-modal-box p{font-size:12px;color:#888;margin-bottom:12px;line-height:1.5}
+.ai-modal-box input{width:100%;padding:8px 12px;border:2px solid #F5C6D0;border-radius:8px;font-size:12px;font-family:inherit;outline:none;margin-bottom:8px}
+.ai-modal-box input:focus{border-color:#E75480}
+.ai-modal-box .ai-btns{display:flex;gap:8px;justify-content:center}
+.ai-modal-box button{padding:8px 16px;border-radius:8px;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer}
+.ai-modal-box .ai-ok{background:#E75480;color:#fff;border:none}
+.ai-modal-box .ai-cancel{background:#eee;color:#666;border:none}
+.theme-indicator{position:absolute;top:8px;right:8px;z-index:20;background:rgba(255,255,255,.85);border:2px solid #F5C6D0;border-radius:10px;padding:3px 10px;font-size:9px;color:#C4799C;cursor:pointer;display:none}
+.theme-indicator:hover{background:#fff}
+
+/* Toolbar */
+.toolbar{margin-top:8px;margin-bottom:16px;display:flex;gap:4px;flex-wrap:wrap;justify-content:center;background:#F5EDE5;padding:6px 10px;border-radius:3px;border:2px solid #C8B8A8;box-shadow:1px 1px 0 #B0A090}
+.tbtn{display:flex;align-items:center;gap:3px;padding:4px 8px;background:#FFF0E8;border:2px solid #D8C0B0;border-radius:3px;font-family:inherit;font-size:10px;font-weight:700;color:#8B6050;cursor:pointer;box-shadow:1px 1px 0 #C0A898}
+.tbtn:hover{background:#FFE8D8;box-shadow:none;transform:translateY(1px)}
+.tbtn:active{background:#FFD8C8}
+.tbtn input[type=file]{display:none}
+
+/* Drop overlay & notification */
+.drop-ov{position:absolute;inset:0;background:rgba(231,84,128,.15);border:3px dashed #E75480;border-radius:10px;display:none;align-items:center;justify-content:center;z-index:50;pointer-events:none;font-size:16px;font-weight:700;color:#E75480}
+.room.dragover .drop-ov{display:flex}
+.notif{position:fixed;top:16px;right:16px;background:rgba(255,255,255,.95);border:2px solid #FFB5C8;border-radius:12px;padding:8px 16px;font-size:12px;color:#C4506A;box-shadow:0 4px 12px rgba(231,84,128,.15);transform:translateX(300px);transition:transform .3s;z-index:100}
+.notif.show{transform:translateX(0)}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;padding:24px;width:400px;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.2);text-align:center;font-family:inherit}
+.modal-box h3{color:#E75480;margin-bottom:12px;font-size:16px}
+.modal-box p{font-size:12px;color:#888;margin-bottom:10px}
+.modal-url{width:100%;padding:8px;border:2px solid #F5C6D0;border-radius:8px;font-size:11px;font-family:inherit;color:#555;background:#FFF5F8;text-align:center;margin-bottom:10px}
+.modal-btns{display:flex;gap:8px;justify-content:center}
+.modal-btn{padding:8px 16px;border-radius:8px;border:2px solid #FFB5C8;background:linear-gradient(180deg,#FFE4EC,#FFD0DD);font-family:inherit;font-size:12px;font-weight:700;color:#C4506A;cursor:pointer}
+.modal-btn:hover{background:linear-gradient(180deg,#FFD0DD,#FFBCCC)}
+.modal-btn.secondary{background:#fff;color:#999;border-color:#ddd}
+/* Invite join screen */
+.join-screen{display:none;position:fixed;inset:0;background:linear-gradient(180deg,#FFF0F5,#FFE4EC 50%,#F5E6FF);z-index:300;align-items:center;justify-content:center}
+.join-screen.show{display:flex}
+.join-card{background:#fff;border-radius:20px;padding:32px;width:340px;text-align:center;box-shadow:0 8px 30px rgba(231,84,128,.2);border:2px solid #F5C6D0}
+.join-card h2{color:#E75480;margin-bottom:6px}
+.join-card p{font-size:12px;color:#C4799C;margin-bottom:16px}
+.join-card input[type=text]{width:100%;padding:10px;border:2px solid #F5C6D0;border-radius:10px;font-family:inherit;font-size:14px;text-align:center;margin-bottom:10px;outline:none}
+.join-card label{display:inline-block;padding:8px 16px;background:linear-gradient(180deg,#FFE4EC,#FFD0DD);border:2px solid #FFB5C8;border-radius:10px;font-size:12px;font-weight:700;color:#C4506A;cursor:pointer;margin-bottom:10px}
+.join-card label input{display:none}
+.join-photo-preview{width:60px;height:60px;border-radius:50%;margin:8px auto;border:3px solid #F5C6D0;overflow:hidden;display:none}
+.join-photo-preview img{width:100%;height:100%;object-fit:cover}
+.join-btn{padding:10px 28px;background:linear-gradient(180deg,#FF8FAB,#E75480);border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;color:#fff;cursor:pointer;margin-top:8px}
+.join-btn:hover{opacity:.9}
+</style>
+</head>
+<body>
+<div class="banner"><h1>&#10048; Yong's Miniroom &#10048;</h1><div class="sub">Welcome to my cozy space~</div></div>
+<div class="vc" id="vc">Today 1 | Total 486</div>
+
+<div class="room-wrap">
+<div class="room" id="room">
+  <div class="wl"></div><div class="wr"></div><div class="wc"></div>
+  <div class="bl"></div><div class="br"></div><div class="fl"></div>
+
+  <!-- SVG Furniture -->
+  <svg id="fsvg" viewBox="0 0 820 560" xmlns="http://www.w3.org/2000/svg"></svg>
+
+  <!-- Content overlays (photo, video) -->
+  <div class="content-overlay" id="contentLayer"></div>
+  <div class="theme-indicator" id="themeTag" onclick="triggerAITheme()"></div>
+
+  <!-- Avatars (미니미 Canvas 픽셀아트) -->
+  <div class="avatar" id="yongAvatar" style="left:370px;top:350px">
+    <div class="avatar-bubble">Yong</div>
+    <div class="minimi">
+      <div class="minimi-head" id="yongPhoto"><img id="yongPhotoImg"></div>
+      <canvas id="yongCanvas"></canvas>
+    </div>
+  </div>
+  <div class="avatar friend-avatar" id="friendAvatar" style="left:420px;top:360px">
+    <div class="avatar-bubble" id="friendName">Friend</div>
+    <span class="friend-delete" onclick="removeFriend()" title="1촌 삭제">&#10005;</span>
+    <div class="minimi">
+      <div class="minimi-head" id="friendHead"><img id="friendHeadImg"></div>
+      <canvas id="friendCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Chat panel -->
+  <div class="chat-panel" id="chatPanel" style="display:none">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-sender" style="display:flex;align-items:center;padding:2px 8px;border-top:1px solid #F5C6D0;font-size:9px;color:#999">
+      <span id="senderLabel" style="font-weight:700;color:#E75480;cursor:pointer" onclick="toggleSender()">Yong</span>
+      <span style="margin:0 4px">으로 전송</span>
+      <span style="font-size:8px;color:#bbb;cursor:pointer" onclick="toggleSender()">[전환]</span>
+    </div>
+    <div class="chat-input-wrap">
+      <input id="chatInput" placeholder="메시지 입력..." maxlength="100">
+      <button onclick="sendChat()">전송</button>
+    </div>
+  </div>
+
+  <!-- BGM -->
+  <div class="bgm"><span id="bgmNote">&#9834;</span><span class="bgm-title" id="bgmTitle">BGM 없음</span>
+    <button class="bgm-btn" id="bgmBtn" onclick="toggleBGM()" disabled>&#9654;</button>
+    <audio id="bgmAudio" loop></audio>
+  </div>
+
+  <div class="drop-ov">파일을 여기에 놓으세요!</div>
+</div>
+</div>
+
+<div class="toolbar">
+  <label class="tbtn">&#128247; 사진<input type="file" id="inPhoto" accept="image/*" multiple></label>
+  <label class="tbtn">&#128250; 영상<input type="file" id="inVideo" accept="video/*"></label>
+  <label class="tbtn">&#128218; 파일<input type="file" id="inFile" multiple></label>
+  <label class="tbtn">&#127925; BGM<input type="file" id="inBGM" accept="audio/*"></label>
+  <label class="tbtn">&#128100; 내 사진<input type="file" id="inFace" accept="image/*"></label>
+  <button class="tbtn" onclick="inviteFriend()">&#128101; 1촌 초대</button>
+  <button class="tbtn" onclick="shareRoom()">&#128279; 공유하기</button>
+  <button class="tbtn" onclick="triggerAITheme()">&#127912; AI 인테리어</button>
+</div>
+<div class="notif" id="notif"></div>
+
+<!-- AI API Key Modal -->
+<div class="ai-modal" id="aiModal">
+  <div class="ai-modal-box">
+    <h3>&#127912; AI 인테리어</h3>
+    <p>서재의 파일 내용을 AI가 분석해서<br>방 인테리어를 자동으로 바꿔줘요!<br><br>Google Gemini API 키가 필요해요.<br><a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#E75480">여기서 무료 발급</a></p>
+    <input type="text" id="aiKeyInput" placeholder="Gemini API Key 입력...">
+    <div class="ai-btns">
+      <button class="ai-ok" onclick="saveAIKeyAndRun()">적용하기</button>
+      <button class="ai-cancel" onclick="document.getElementById('aiModal').classList.remove('show')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share/Invite Modal -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">공유하기</h3>
+    <p id="modalDesc">이 링크를 공유하면 상대방이 미니룸을 볼 수 있어요!</p>
+    <input class="modal-url" id="modalUrl" readonly onclick="this.select()">
+    <div class="modal-btns">
+      <button class="modal-btn" onclick="copyModalUrl()">복사하기</button>
+      <button class="modal-btn secondary" onclick="closeModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Friend Join Screen -->
+<div class="join-screen" id="joinScreen">
+  <div class="join-card">
+    <h2>&#10048; 미니룸 초대 &#10048;</h2>
+    <p id="joinMsg">Yong님의 미니룸에 초대되었어요!</p>
+    <input type="text" id="joinName" placeholder="이름을 입력하세요">
+    <br>
+    <label>&#128247; 내 사진 올리기<input type="file" id="joinPhoto" accept="image/*"></label>
+    <div class="join-photo-preview" id="joinPreview"><img id="joinPreviewImg"></div>
+    <br>
+    <button class="join-btn" onclick="completeJoin()">입장하기!</button>
+  </div>
+</div>
+
+<script>
+// ===== ISOMETRIC ENGINE =====
+// 3D→2D: x=along left wall, y=along right wall, z=up
+function iso(x, y, z) {
+  return [410 + (y - x), 245 + (x + y) / 3 - z];
+}
+function pts(verts) { return verts.map(v => iso(...v).map(n=>n.toFixed(1)).join(',')).join(' '); }
+
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyBzyzbltg61kfgNqaw8EGTKR5d2ulsGuIE",
+  authDomain: "miniroom-430f4.firebaseapp.com",
+  databaseURL: "https://miniroom-430f4-default-rtdb.firebaseio.com",
+  projectId: "miniroom-430f4",
+  storageBucket: "miniroom-430f4.firebasestorage.app",
+  messagingSenderId: "694515144300",
+  appId: "1:694515144300:web:bcfe225c9e0c2153f22a49"
+};
+const fbApp = firebase.initializeApp(firebaseConfig);
+const fbDB = firebase.database();
+// ===== SUPABASE STORAGE =====
+const SUPA_URL = 'https://pthujylcryhppjbaqqdt.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0aHVqeWxjcnlocHBqYmFxcWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjYzMjAsImV4cCI6MjA5MTMwMjMyMH0.sMgZbp6DO8zgGweJ6HTn4ZvmZt_mw-EsMRlRBUaUXUI';
+
+function dataUrlToBlob(dataUrl) {
+  const parts = dataUrl.split(',');
+  const mime = parts[0].match(/:(.*?);/)[1];
+  const b64 = atob(parts[1]);
+  const arr = new Uint8Array(b64.length);
+  for (let i = 0; i < b64.length; i++) arr[i] = b64.charCodeAt(i);
+  return new Blob([arr], {type: mime});
+}
+async function supaUpload(fileName, dataUrl) {
+  // Handle both data URLs and http URLs
+  let blob;
+  if (dataUrl.startsWith('data:')) {
+    blob = dataUrlToBlob(dataUrl);
+  } else if (dataUrl.startsWith('http')) {
+    const res = await fetch(dataUrl);
+    blob = await res.blob();
+  } else {
+    throw new Error('Invalid data');
+  }
+  let mime = blob.type;
+  if (fileName.endsWith('.mp4')) mime = 'video/mp4';
+  else if (fileName.endsWith('.mp3')) mime = 'audio/mpeg';
+  const path = 'rooms/' + Date.now() + '_' + fileName;
+  const upRes = await fetch(SUPA_URL + '/storage/v1/object/media/' + path, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'apikey': SUPA_KEY,
+      'Content-Type': mime || 'application/octet-stream',
+      'x-upsert': 'true'
+    },
+    body: blob
+  });
+  if (!upRes.ok) throw new Error('업로드 실패: ' + upRes.status);
+  return SUPA_URL + '/storage/v1/object/public/media/' + path;
+}
+
+// ===== INDEXEDDB STORAGE =====
+const DB_NAME = 'miniroomDB', DB_VER = 1;
+let db = null;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('files')) d.createObjectStore('files');
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = e => reject(e);
+  });
+}
+function dbPut(key, value) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('files','readwrite');
+    tx.objectStore('files').put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e);
+  });
+}
+function dbGet(key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('files','readonly');
+    const req = tx.objectStore('files').get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e);
+  });
+}
+function fileToDataURL(file) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.readAsDataURL(file);
+  });
+}
+
+// ===== FURNITURE DEFINITIONS =====
+// Colors from actual Cyworld/pixel art references:
+// Outline: #3a3428 (dark brown-black), Floor: #b78c71, Wall: #4c848d
+// Sofa: #f8f8c6/#d8d0a0/#7f7757, Table: #dfbf8e/#c9a979/#95675a
+// Cabinet: #6e7488/#525663/#383c45, Carpet: #73719c/#b5b2de/#504f76
+const OL = '#3a3428'; // master outline color
+const FURN = [
+  {id:'bookshelf', x:100, y:4, z:0, w:75, d:28, h:135,
+   colors:{top:'#c9a979',left:'#a08058',right:'#7a5a38'}, label:'서재'},
+  {id:'frame', x:220, y:2, z:65, w:65, d:5, h:50,
+   colors:{top:'#c9a979',left:'#FFF8F0',right:'#8a6a48'}, label:'액자'},
+  {id:'tv', x:3, y:60, z:20, w:8, d:170, h:120,
+   colors:{top:'#6e7488',left:'#525663',right:'#383c45'}, label:'TV'},
+  {id:'desk', x:4, y:210, z:0, w:35, d:70, h:45,
+   colors:{top:'#dfbf8e',left:'#c9a979',right:'#95675a'}, label:'책상'},
+  {id:'sofa', x:150, y:90, z:0, w:80, d:38, h:28,
+   colors:{top:'#f8f8c6',left:'#d8d0a0',right:'#7f7757'}, label:'소파'},
+  {id:'table', x:110, y:175, z:0, w:50, d:55, h:26,
+   colors:{top:'#dfbf8e',left:'#c9a979',right:'#95675a'}, label:'탁자'},
+  {id:'rug', x:115, y:115, z:0, w:90, d:90, h:1,
+   colors:{top:'#b5b2de',left:'#73719c',right:'#504f76'}, label:'러그'},
+  {id:'plant', x:5, y:240, z:0, w:15, d:15, h:40,
+   colors:{top:'#c9a979',left:'#95675a',right:'#7a5a38'}, label:'화분'},
+  {id:'lamp', x:30, y:218, z:45, w:12, d:12, h:25,
+   colors:{top:'#f4e1c3',left:'#dfbf8e',right:'#c9a979'}, label:'스탠드'},
+  {id:'bed', x:200, y:110, z:0, w:55, d:90, h:22,
+   colors:{top:'#f8c8d0',left:'#e8a8b8',right:'#d090a0'}, label:'침대'},
+  {id:'window', x:160, y:2, z:70, w:80, d:3, h:60,
+   colors:{top:'#e8e0d8',left:'#c0d8f0',right:'#c9a979'}, label:'창문'},
+  {id:'clock', x:135, y:2, z:110, w:18, d:3, h:18,
+   colors:{top:'#f8f0e0',left:'#f8f0e0',right:'#c9a979'}, label:'시계'},
+];
+
+// 3-tone isometric box with dark pixel outline (Cyworld style)
+function box(x,y,z,w,d,h,ct,cl,cr) {
+  const top = [[x,y,z+h],[x+w,y,z+h],[x+w,y+d,z+h],[x,y+d,z+h]];
+  const left = [[x,y+d,z],[x+w,y+d,z],[x+w,y+d,z+h],[x,y+d,z+h]];
+  const right = [[x+w,y,z],[x+w,y+d,z],[x+w,y+d,z+h],[x+w,y,z+h]];
+  return `<polygon points="${pts(right)}" fill="${cr}" stroke="${OL}" stroke-width="1.2"/>` +
+    `<polygon points="${pts(left)}" fill="${cl}" stroke="${OL}" stroke-width="1.2"/>` +
+    `<polygon points="${pts(top)}" fill="${ct}" stroke="${OL}" stroke-width="1.2"/>`;
+}
+function renderFurniture() {
+  const svg = document.getElementById('fsvg');
+  const sorted = [...FURN].sort((a,b) => (a.x+a.y) - (b.x+b.y));
+  let html = '';
+  for (const f of sorted) {
+    const {x,y,z,w,d,h,colors:c,id} = f;
+    html += `<g data-id="${id}" class="furn-group">`;
+
+    if (id === 'rug') {
+      // Cyworld-style carpet with stripe border pattern (ref: #73719c/#b5b2de/#504f76)
+      const o = [[x,y,1],[x+w,y,1],[x+w,y+d,1],[x,y+d,1]];
+      const m = [[x+6,y+6,1],[x+w-6,y+6,1],[x+w-6,y+d-6,1],[x+6,y+d-6,1]];
+      const i = [[x+12,y+12,1],[x+w-12,y+12,1],[x+w-12,y+d-12,1],[x+12,y+d-12,1]];
+      html += `<polygon points="${pts(o)}" fill="${c.left}" stroke="${OL}" stroke-width="1"/>`;
+      html += `<polygon points="${pts(m)}" fill="${c.top}" stroke="#504f76" stroke-width="0.8"/>`;
+      html += `<polygon points="${pts(i)}" fill="#d8d6f0" stroke="#73719c" stroke-width="0.5"/>`;
+    }
+    else if (id === 'plant') {
+      // Terracotta pot with 3-tone shading
+      html += box(x+1,y+1,z,13,13,20,c.top,c.left,c.right);
+      // Pot rim
+      html += box(x,y,z+20,15,15,3,'#dfbf8e','#c9a979','#95675a');
+      // Soil
+      html += box(x+2,y+2,z+20,11,11,2,'#5a4030','#4a3020','#3a2818');
+      // Leaves - pixel-style angular shapes
+      const b = iso(x+7,y+7,z+24);
+      html += `<polygon points="${b[0]-8},${b[1]-6} ${b[0]-2},${b[1]-20} ${b[0]+3},${b[1]-8}" fill="#5a9e48" stroke="${OL}" stroke-width="1"/>`;
+      html += `<polygon points="${b[0]+2},${b[1]-4} ${b[0]+8},${b[1]-18} ${b[0]+12},${b[1]-5}" fill="#6ab858" stroke="${OL}" stroke-width="1"/>`;
+      html += `<polygon points="${b[0]-4},${b[1]-10} ${b[0]+3},${b[1]-25} ${b[0]+6},${b[1]-10}" fill="#78c868" stroke="${OL}" stroke-width="1"/>`;
+      html += `<polygon points="${b[0]-6},${b[1]-2} ${b[0]-10},${b[1]-15} ${b[0]-1},${b[1]-12}" fill="#4a8838" stroke="${OL}" stroke-width="1"/>`;
+    }
+    else if (id === 'lamp') {
+      // Lamp pole
+      html += box(x+5,y+5,z-45,2,2,45,'#bbb9b6','#9a9894','#7a7876');
+      // Shade (tapered look with highlight)
+      html += box(x,y,z,w,d,h,c.top,c.left,c.right);
+      // Highlight strip on shade
+      const hl = [[x+2,y+d,z+3],[x+w-2,y+d,z+3],[x+w-2,y+d,z+h-3],[x+2,y+d,z+h-3]];
+      html += `<polygon points="${pts(hl)}" fill="#fff8e0" opacity="0.4"/>`;
+      // Warm glow on floor
+      const gc = iso(x+6,y+6,z-44);
+      html += `<ellipse cx="${gc[0]}" cy="${gc[1]}" rx="14" ry="8" fill="#f4e1c3" opacity="0.25"/>`;
+    }
+    else if (id === 'bookshelf') {
+      const sd = 3;
+      // Back panel (darkest)
+      const back = [[x,y,z],[x+w,y,z],[x+w,y,z+h],[x,y,z+h]];
+      html += `<polygon points="${pts(back)}" fill="#5a4030" stroke="${OL}" stroke-width="1.2"/>`;
+      // Left side
+      const ls = [[x,y,z],[x,y+d,z],[x,y+d,z+h],[x,y,z+h]];
+      html += `<polygon points="${pts(ls)}" fill="${c.left}" stroke="${OL}" stroke-width="1.2"/>`;
+      // 5 shelf boards (0=bottom, 4=top)
+      for (let i = 0; i <= 4; i++) {
+        const sz = h * i / 4;
+        html += box(x,y,z+sz,w,d,sd,c.top,c.left,c.right);
+      }
+      // Right side panel
+      const rs = [[x+w,y,z],[x+w,y+d,z],[x+w,y+d,z+h],[x+w,y,z+h]];
+      html += `<polygon points="${pts(rs)}" fill="${c.right}" stroke="${OL}" stroke-width="1.2"/>`;
+    }
+    else if (id === 'sofa') {
+      // Sofa ref: highlight #f8f8e8, light #f8f8c6, mid #d8d0a0, dark #7f7757
+      const seatH = 14; // seat platform height
+      const backH = h;  // total back height
+      const armH = h - 6; // armrest slightly lower than back
+      // Back rest (behind seat, full width)
+      html += box(x,y,z,w,8,backH,'#f8f8e8','#d8d0a0','#7f7757');
+      // Left armrest
+      html += box(x,y+8,z,8,d-8,armH,'#f8f8e8','#d8d0a0','#7f7757');
+      // Right armrest
+      html += box(x+w-8,y+8,z,8,d-8,armH,'#f8f8e8','#d8d0a0','#7f7757');
+      // Base/seat box (between armrests)
+      html += box(x+8,y+8,z,w-16,d-8,seatH,c.top,c.left,c.right);
+      // Seat cushion 1
+      const cw = (w-20)/2;
+      html += box(x+10,y+10,z+seatH,cw,d-12,4,'#f8f8c6','#d8d0a0','#afa878');
+      // Seat cushion 2
+      html += box(x+12+cw,y+10,z+seatH,cw,d-12,4,'#f8f8c6','#d8d0a0','#afa878');
+      // Back cushion highlights (on back face)
+      const bh1 = [[x+10,y+1,z+seatH],[x+10+cw,y+1,z+seatH],[x+10+cw,y+1,z+backH-3],[x+10,y+1,z+backH-3]];
+      html += `<polygon points="${pts(bh1)}" fill="#f8f8e8" stroke="#d8d0a0" stroke-width="0.5"/>`;
+      const bh2 = [[x+12+cw,y+1,z+seatH],[x+w-10,y+1,z+seatH],[x+w-10,y+1,z+backH-3],[x+12+cw,y+1,z+backH-3]];
+      html += `<polygon points="${pts(bh2)}" fill="#f8f8e8" stroke="#d8d0a0" stroke-width="0.5"/>`;
+    }
+    else if (id === 'tv') {
+      // TV Cabinet/Stand (ref: #6e7488/#525663/#383c45, outline #20232e)
+      html += box(x,y+8,z,w+4,d-16,h-15,'#6e7488','#525663','#383c45');
+      // Screen bezel
+      const bz = 10;
+      html += box(x+w+2,y+bz,z+bz,3,d-16-bz*2,h-15-bz*2,'#20232e','#181820','#101018');
+      // Screen (dark blue-tint)
+      const scr = [[x+w+5,y+bz+3,z+bz+3],[x+w+5,y+d-8-bz-3,z+bz+3],
+                   [x+w+5,y+d-8-bz-3,z+h-15-bz-3],[x+w+5,y+bz+3,z+h-15-bz-3]];
+      html += `<polygon points="${pts(scr)}" fill="#202838" stroke="#181828" stroke-width="1"/>`;
+      // TV stand base
+      html += box(x+1,y+d/2-25,z-10,w+2,50,12,'#818796','#6e7488','#525663');
+      // Highlight on cabinet top
+      const cht = [[x+2,y+10,z+h-15],[x+w+2,y+10,z+h-15],[x+w+2,y+d-22,z+h-15],[x+2,y+d-22,z+h-15]];
+      html += `<polygon points="${pts(cht)}" fill="#818796" stroke="${OL}" stroke-width="0.5"/>`;
+      // Power LED
+      const led = iso(x+w+4,y+d-14,z+5);
+      html += `<circle cx="${led[0]}" cy="${led[1]}" r="1.5" fill="#58e058"/>`;
+    }
+    else if (id === 'desk') {
+      // Desktop (ref: #dfbf8e/#c9a979/#95675a, highlight #f4e1c3)
+      html += box(x,y,z+h-6,w,d,6,c.top,c.left,c.right);
+      // Highlight on desktop surface
+      const dhl = [[x+3,y+3,z+h],[x+w-3,y+3,z+h],[x+w-3,y+d-3,z+h],[x+3,y+d-3,z+h]];
+      html += `<polygon points="${pts(dhl)}" fill="#f4e1c3" opacity="0.5"/>`;
+      // 4 legs (thinner, with outline)
+      const lw = 3, lh = h-6;
+      html += box(x+2,y+2,z,lw,lw,lh,'#c9a979','#95675a','#7a5a38');
+      html += box(x+w-5,y+2,z,lw,lw,lh,'#c9a979','#95675a','#7a5a38');
+      html += box(x+2,y+d-5,z,lw,lw,lh,'#c9a979','#95675a','#7a5a38');
+      html += box(x+w-5,y+d-5,z,lw,lw,lh,'#c9a979','#95675a','#7a5a38');
+      // Drawer detail
+      const dr = [[x+6,y+d,z+h-16],[x+w-6,y+d,z+h-16],[x+w-6,y+d,z+h-8],[x+6,y+d,z+h-8]];
+      html += `<polygon points="${pts(dr)}" fill="#c9a979" stroke="${OL}" stroke-width="0.8"/>`;
+      const kn = iso(x+w/2,y+d,z+h-12);
+      html += `<circle cx="${kn[0]}" cy="${kn[1]}" r="1.5" fill="#f4e1c3" stroke="${OL}" stroke-width="0.5"/>`;
+    }
+    else if (id === 'table') {
+      // Coffee table with highlight (ref: #dfbf8e/#c9a979/#95675a, highlight #f4e1c3)
+      html += box(x,y,z+h-4,w,d,4,c.top,c.left,c.right);
+      // Table highlight
+      const thl = [[x+3,y+3,z+h],[x+w-3,y+3,z+h],[x+w-3,y+d-3,z+h],[x+3,y+d-3,z+h]];
+      html += `<polygon points="${pts(thl)}" fill="#f4e1c3" opacity="0.4"/>`;
+      // 4 thin legs (Cyworld tables have visible legs)
+      const lw = 3;
+      html += box(x+3,y+3,z,lw,lw,h-4,'#c9a979','#95675a','#7a5a38');
+      html += box(x+w-6,y+3,z,lw,lw,h-4,'#c9a979','#95675a','#7a5a38');
+      html += box(x+3,y+d-6,z,lw,lw,h-4,'#c9a979','#95675a','#7a5a38');
+      html += box(x+w-6,y+d-6,z,lw,lw,h-4,'#c9a979','#95675a','#7a5a38');
+      // Cup (simple pixel style)
+      const cup = iso(x+w/2-3,y+d/3,z+h);
+      html += `<ellipse cx="${cup[0]}" cy="${cup[1]}" rx="4" ry="2.5" fill="#f8f0e0" stroke="${OL}" stroke-width="0.8"/>`;
+      // Cup body
+      const cupB = [[x+w/2-6,y+d/3-1,z+h-1],[x+w/2,y+d/3-1,z+h-1],[x+w/2,y+d/3-1,z+h+1],[x+w/2-6,y+d/3-1,z+h+1]];
+      html += `<polygon points="${pts(cupB)}" fill="#e8e0d0" stroke="${OL}" stroke-width="0.6"/>`;
+    }
+    else if (id === 'frame') {
+      // Wall frame with inner mat
+      html += box(x,y,z,w,d,h,'#c9a979','#f0e8d8','#8a6a48');
+      // Inner mat (lighter)
+      const m = [[x+5,y+d+0.5,z+5],[x+w-5,y+d+0.5,z+5],[x+w-5,y+d+0.5,z+h-5],[x+5,y+d+0.5,z+h-5]];
+      html += `<polygon points="${pts(m)}" fill="#fff8f0" stroke="#c9a979" stroke-width="0.6"/>`;
+    }
+    else if (id === 'bed') {
+      // Headboard (behind pillow, rendered first so it's behind)
+      html += box(x+2,y,z,w-4,4,h+4,'#c9a979','#a08058','#7a5a38');
+      // Bed frame (wood base)
+      html += box(x,y+4,z,w,d-4,10,'#c9a979','#95675a','#7a5a38');
+      // Mattress (white/light)
+      html += box(x+3,y+5,z+10,w-6,d-8,5,'#f0f0f0','#e0e0e0','#d0d0d0');
+      // Blanket/duvet (pastel pink)
+      html += box(x+3,y+18,z+14,w-6,d-24,4,c.top,c.left,c.right);
+      // Blanket fold line
+      const fold = [[x+3,y+18,z+18],[x+w-3,y+18,z+18],[x+w-3,y+20,z+18],[x+3,y+20,z+18]];
+      html += `<polygon points="${pts(fold)}" fill="#ffe0e8" stroke="${OL}" stroke-width="0.5"/>`;
+      // Pillow (white, puffy)
+      html += box(x+8,y+5,z+14,w-16,12,5,'#f8f8f8','#e8e8e8','#d8d8d8');
+      // Pillow highlight
+      const ph = [[x+10,y+6,z+19],[x+w-10,y+6,z+19],[x+w-10,y+13,z+19],[x+10,y+13,z+19]];
+      html += `<polygon points="${pts(ph)}" fill="#ffffff" opacity="0.5"/>`;
+    }
+    else if (id === 'window') {
+      // Window frame (white/cream)
+      html += box(x,y,z,w,d,h,'#e8e0d8','#d0e8f8','#c9a979');
+      // Sky/glass (light blue) on left face (wall)
+      const glass = [[x+4,y+d+0.5,z+4],[x+w-4,y+d+0.5,z+4],[x+w-4,y+d+0.5,z+h-4],[x+4,y+d+0.5,z+h-4]];
+      html += `<polygon points="${pts(glass)}" fill="#a8d8f8" stroke="#88b8d8" stroke-width="0.5"/>`;
+      // Window cross bars
+      const midX = (x+4+x+w-4)/2, midZ = (z+4+z+h-4)/2;
+      const hbar = [[x+4,y+d+0.8,midZ-1],[x+w-4,y+d+0.8,midZ-1],[x+w-4,y+d+0.8,midZ+1],[x+4,y+d+0.8,midZ+1]];
+      html += `<polygon points="${pts(hbar)}" fill="#e8e0d8" stroke="${OL}" stroke-width="0.5"/>`;
+      const vbar = [[midX-1,y+d+0.8,z+4],[midX+1,y+d+0.8,z+4],[midX+1,y+d+0.8,z+h-4],[midX-1,y+d+0.8,z+h-4]];
+      html += `<polygon points="${pts(vbar)}" fill="#e8e0d8" stroke="${OL}" stroke-width="0.5"/>`;
+      // Clouds in sky
+      const cl1 = iso(x+w/3, y+d+1, z+h-12);
+      html += `<ellipse cx="${cl1[0]}" cy="${cl1[1]}" rx="8" ry="3" fill="#fff" opacity="0.7"/>`;
+      const cl2 = iso(x+w*2/3, y+d+1, z+h-16);
+      html += `<ellipse cx="${cl2[0]}" cy="${cl2[1]}" rx="6" ry="2.5" fill="#fff" opacity="0.6"/>`;
+      // Left curtain
+      const lc = [[x+1,y+d+0.3,z+h-2],[x+8,y+d+0.3,z+h-2],[x+10,y+d+0.3,z+4],[x+3,y+d+0.3,z+4]];
+      html += `<polygon points="${pts(lc)}" fill="#f8c8d0" stroke="${OL}" stroke-width="0.8" opacity="0.85"/>`;
+      // Right curtain
+      const rc = [[x+w-8,y+d+0.3,z+h-2],[x+w-1,y+d+0.3,z+h-2],[x+w-3,y+d+0.3,z+4],[x+w-10,y+d+0.3,z+4]];
+      html += `<polygon points="${pts(rc)}" fill="#f8c8d0" stroke="${OL}" stroke-width="0.8" opacity="0.85"/>`;
+      // Curtain rod
+      const rod = [[x-2,y+d+0.5,z+h],[x+w+2,y+d+0.5,z+h],[x+w+2,y+d+0.5,z+h+2],[x-2,y+d+0.5,z+h+2]];
+      html += `<polygon points="${pts(rod)}" fill="#c9a979" stroke="${OL}" stroke-width="0.8"/>`;
+    }
+    else if (id === 'clock') {
+      // Round wall clock
+      const center = iso(x+w/2, y+d+0.5, z+h/2);
+      // Clock face circle
+      html += `<circle cx="${center[0]}" cy="${center[1]}" r="12" fill="#f8f0e0" stroke="${OL}" stroke-width="1.5"/>`;
+      // Clock inner ring
+      html += `<circle cx="${center[0]}" cy="${center[1]}" r="10" fill="none" stroke="#c9a979" stroke-width="0.5"/>`;
+      // Hour marks (12, 3, 6, 9)
+      html += `<line x1="${center[0]}" y1="${center[1]-9}" x2="${center[0]}" y2="${center[1]-7}" stroke="${OL}" stroke-width="1"/>`;
+      html += `<line x1="${center[0]+9}" y1="${center[1]}" x2="${center[0]+7}" y2="${center[1]}" stroke="${OL}" stroke-width="1"/>`;
+      html += `<line x1="${center[0]}" y1="${center[1]+9}" x2="${center[0]}" y2="${center[1]+7}" stroke="${OL}" stroke-width="1"/>`;
+      html += `<line x1="${center[0]-9}" y1="${center[1]}" x2="${center[0]-7}" y2="${center[1]}" stroke="${OL}" stroke-width="1"/>`;
+      // Hour hand
+      html += `<line x1="${center[0]}" y1="${center[1]}" x2="${center[0]+4}" y2="${center[1]-5}" stroke="${OL}" stroke-width="1.2"/>`;
+      // Minute hand
+      html += `<line x1="${center[0]}" y1="${center[1]}" x2="${center[0]-2}" y2="${center[1]-7}" stroke="${OL}" stroke-width="0.8"/>`;
+      // Center dot
+      html += `<circle cx="${center[0]}" cy="${center[1]}" r="1.2" fill="${OL}"/>`;
+    }
+    else {
+      html += box(x,y,z,w,d,h,c.top,c.left,c.right);
+    }
+    html += '</g>';
+  }
+  svg.innerHTML = html;
+
+  // Click handlers are now in drag system (only fire if not dragged)
+
+  // Position content overlays
+  positionOverlays();
+}
+
+// ===== CONTENT OVERLAYS =====
+function positionOverlays() {
+  const cl = document.getElementById('contentLayer');
+  // Frame photo overlay - on the "left" face (y=py+d) of frame
+  const f = FURN.find(f=>f.id==='frame');
+  const fp = [iso(f.x, f.y+f.d, f.z), iso(f.x+f.w, f.y+f.d, f.z), iso(f.x+f.w, f.y+f.d, f.z+f.h), iso(f.x, f.y+f.d, f.z+f.h)];
+  const fMinX = Math.min(...fp.map(p=>p[0])), fMaxX = Math.max(...fp.map(p=>p[0]));
+  const fMinY = Math.min(...fp.map(p=>p[1])), fMaxY = Math.max(...fp.map(p=>p[1]));
+  const fClip = fp.map(p => `${p[0]-fMinX}px ${p[1]-fMinY}px`).join(',');
+
+  // TV overlay - on the "right" face (x=px+w) of tv
+  const t = FURN.find(f=>f.id==='tv');
+  const tp = [iso(t.x+t.w, t.y, t.z), iso(t.x+t.w, t.y+t.d, t.z), iso(t.x+t.w, t.y+t.d, t.z+t.h), iso(t.x+t.w, t.y, t.z+t.h)];
+  const tMinX = Math.min(...tp.map(p=>p[0])), tMaxX = Math.max(...tp.map(p=>p[0]));
+  const tMinY = Math.min(...tp.map(p=>p[1])), tMaxY = Math.max(...tp.map(p=>p[1]));
+  const tClip = tp.map(p => `${p[0]-tMinX}px ${p[1]-tMinY}px`).join(',');
+
+  cl.innerHTML = `
+    <img id="framePhoto" style="left:${fMinX}px;top:${fMinY}px;width:${fMaxX-fMinX}px;height:${fMaxY-fMinY}px;clip-path:polygon(${fClip})">
+    <div class="frame-placeholder" id="framePH" onclick="document.getElementById('inPhoto').click()" style="left:${fMinX}px;top:${fMinY}px;width:${fMaxX-fMinX}px;height:${fMaxY-fMinY}px;clip-path:polygon(${fClip})">&#128247;<br>사진 올리기</div>
+    <div class="frame-counter" id="frameCtr" style="left:${fMaxX-30}px;top:${fMaxY-14}px"></div>
+    <div class="tv-wrap" id="tvWrap" style="left:${tMinX}px;top:${tMinY}px;width:${tMaxX-tMinX}px;height:${tMaxY-tMinY}px;clip-path:polygon(${tClip})">
+      <video id="tvVideo" style="width:100%;height:100%;object-fit:cover"></video>
+      <div class="tv-crt" style="width:100%;height:100%;top:0;left:0"></div>
+    </div>
+    <div class="tv-controls" id="tvCtrl" style="display:none;left:${tp[0][0]}px;top:${tp[0][1]+2}px;width:${tMaxX-tMinX-10}px">
+      <button class="tv-btn" id="tvPlayBtn" onclick="toggleTV()">&#9654;</button>
+      <span class="tv-time" id="tvTime">00:00</span>
+      <div class="tv-progress" id="tvProg" onclick="seekTV(event)"><div class="tv-progress-fill" id="tvProgFill"></div></div>
+      <div class="tv-vol" onclick="setTVVol(event)"><div class="tv-vol-fill" id="tvVolFill"></div></div>
+      <button class="tv-btn" style="font-size:8px" onclick="toggleTVFull()">&#9974;</button>
+    </div>
+    <div class="tv-placeholder" id="tvPH" onclick="document.getElementById('inVideo').click()" style="left:${tMinX}px;top:${tMinY}px;width:${tMaxX-tMinX}px;height:${tMaxY-tMinY}px;clip-path:polygon(${tClip})">&#128250;<br>영상 올리기</div>
+  `;
+}
+
+// ===== 미니미 Canvas 픽셀아트 렌더링 =====
+function drawMinimi(canvasId, opts) {
+  // 32x48 pixel grid, scale 2px — cap+hoodie boy matching reference image
+  const o = Object.assign({
+    hair:'#5A3825', hairHi:'#7A5035', hairDk:'#3A1810',
+    skin:'#FDCC9B', skinSh:'#E0A870', skinHi:'#FFE8D0',
+    eyeW:'#FFFFFF', pupil:'#1A1008', iris:'#4A3020',
+    blush:'#F0A090', mouth:'#D06050', mouthIn:'#B04838',
+    cap:'#384058', capHi:'#485068', capDk:'#282838', capBrim:'#303848',
+    hoodie:'#8A9068', hoodieSh:'#707850', hoodieHi:'#A0A880', hoodieDk:'#606840',
+    pocket:'#E8E0D0', pocketSh:'#D0C8B8',
+    pants:'#7090B0', pantsSh:'#506880', pantsHi:'#88A8C8',
+    shoe:'#A8A098', shoeSh:'#888078', shoeHi:'#C0B8B0', soleSh:'#787068',
+    outline:'#282018'
+  }, opts);
+  const W=32, H=48, S=2;
+  const c = document.getElementById(canvasId);
+  if(!c) return;
+  c.width = W*S; c.height = H*S;
+  c.style.width = W*S+'px'; c.style.height = H*S+'px';
+  c.style.imageRendering = 'pixelated';
+  const x = c.getContext('2d');
+  const P = (cx,cy,col) => { x.fillStyle=col; x.fillRect(cx*S,cy*S,S,S); };
+  const R = (cx,cy,w,h,col) => { x.fillStyle=col; x.fillRect(cx*S,cy*S,w*S,h*S); };
+  const OL = o.outline;
+
+  // === CAP (navy, with brim) ===
+  R(9,0,14,1,OL);
+  R(8,1,16,1,OL); R(9,1,14,1,o.cap); P(12,1,o.capHi); P(15,1,o.capHi);
+  R(7,2,18,1,OL); R(8,2,16,1,o.cap); P(10,2,o.capHi); P(14,2,o.capHi);
+  R(6,3,20,1,OL); R(7,3,18,1,o.cap); P(9,3,o.capHi); P(13,3,o.capHi);
+  R(5,4,22,1,OL); R(6,4,20,1,o.cap); P(11,4,o.capHi);
+  R(5,5,22,1,OL); R(6,5,20,1,o.capDk);
+  // Brim (extends left, darker)
+  R(2,6,24,1,OL); R(3,6,22,1,o.capBrim); P(5,6,o.capDk); P(22,6,o.capDk);
+  R(1,7,26,1,OL); R(2,7,24,1,o.capBrim); R(2,7,4,1,o.capDk);
+  R(2,8,24,1,OL); // brim bottom outline
+
+  // === HAIR (messy, sticking out from cap) ===
+  // Left side hair
+  P(4,5,OL); P(3,6,OL); P(3,7,OL); P(3,8,o.hair); P(4,8,o.hair);
+  P(4,9,o.hair); P(3,9,o.hair); P(2,9,OL); P(2,10,OL);
+  P(3,10,o.hair); P(4,10,o.hair); P(3,11,o.hair); P(4,11,o.hairDk);
+  P(3,12,o.hairDk); P(4,12,o.hair); P(3,13,OL); P(4,13,o.hairDk);
+  P(4,14,OL); P(5,14,o.hairDk);
+  // Right side hair
+  P(27,5,OL); P(27,6,OL); P(27,7,o.hair); P(26,7,o.hair);
+  P(27,8,o.hair); P(28,8,OL); P(27,9,o.hair); P(28,9,OL);
+  P(27,10,o.hair); P(28,10,OL); P(27,11,o.hairDk); P(28,11,OL);
+  P(27,12,o.hairDk); P(27,13,OL);
+  // Bangs under cap
+  R(6,7,20,1,o.hair); R(7,7,4,1,o.hairHi);
+  R(5,8,22,1,o.hair); R(8,8,3,1,o.hairHi); R(17,8,2,1,o.hairHi);
+
+  // === FACE ===
+  R(5,9,22,1,o.skin); R(5,10,22,1,o.skin); R(5,11,22,1,o.skin);
+  R(5,12,22,1,o.skin); R(5,13,22,1,o.skin); R(5,14,22,1,o.skin);
+  R(6,15,20,1,o.skin); R(7,16,18,1,o.skin); R(8,17,16,1,o.skin);
+  R(9,18,14,1,o.skin); R(10,19,12,1,OL);
+  // Face outline
+  for(let i=9;i<=14;i++){P(4,i,OL);P(27,i,OL);}
+  P(5,15,OL); P(26,15,OL); P(6,16,OL); P(25,16,OL);
+  P(7,17,OL); P(24,17,OL); P(8,18,OL); P(23,18,OL);
+  // Skin shadow near hair
+  R(5,9,22,1,o.skinSh); R(6,9,4,1,o.skin); R(14,9,8,1,o.skin);
+  P(7,10,o.skinHi); P(8,10,o.skinHi);
+
+  // === EYES (angled, expressive — matching ref) ===
+  // Left eye
+  P(8,11,OL);P(9,11,OL);P(10,11,OL);P(11,11,OL); // brow line
+  P(8,12,OL); R(9,12,3,1,o.eyeW); P(12,12,OL);
+  P(8,13,OL); R(9,13,3,1,o.eyeW); P(12,13,OL);
+  P(9,14,OL); P(10,14,OL); P(11,14,OL);
+  // pupil
+  P(10,12,o.iris); P(11,12,o.pupil);
+  P(10,13,o.iris); P(11,13,o.pupil);
+  P(9,12,o.eyeW); // highlight
+
+  // Right eye
+  P(19,11,OL);P(20,11,OL);P(21,11,OL);P(22,11,OL);
+  P(19,12,OL); R(20,12,3,1,o.eyeW); P(23,12,OL);
+  P(19,13,OL); R(20,13,3,1,o.eyeW); P(23,13,OL);
+  P(20,14,OL); P(21,14,OL); P(22,14,OL);
+  P(21,12,o.iris); P(22,12,o.pupil);
+  P(21,13,o.iris); P(22,13,o.pupil);
+  P(20,12,o.eyeW);
+
+  // === BLUSH ===
+  R(6,15,3,1,o.blush); R(23,15,3,1,o.blush);
+
+  // === MOUTH (slight smirk) ===
+  R(13,16,2,1,o.mouth); R(15,16,2,1,o.mouth);
+  P(14,16,o.mouthIn); P(15,17,o.skin);
+
+  // === NECK ===
+  R(12,19,8,1,o.skin); P(11,19,OL); P(20,19,OL);
+
+  // === HOODIE (olive green with white kangaroo pocket) ===
+  // Shoulders
+  R(9,20,14,1,OL); R(10,20,12,1,o.hoodie);
+  R(8,21,16,1,OL); R(9,21,14,1,o.hoodie); P(11,21,o.hoodieHi); P(12,21,o.hoodieHi);
+  // Hood strings
+  P(14,20,'#D0D0C0'); P(17,20,'#D0D0C0'); P(14,21,'#D0D0C0'); P(17,21,'#D0D0C0');
+  // Body
+  R(6,22,20,1,OL); R(7,22,18,1,o.hoodie); P(8,22,o.hoodieHi);
+  R(5,23,22,1,OL); R(6,23,20,1,o.hoodie); P(7,23,o.hoodieHi);
+  R(4,24,24,1,OL); R(5,24,22,1,o.hoodie);
+  R(4,25,24,1,OL); R(5,25,22,1,o.hoodie);
+  R(4,26,24,1,OL); R(5,26,22,1,o.hoodie); P(5,26,o.hoodieSh); P(26,26,o.hoodieSh);
+  R(4,27,24,1,OL); R(5,27,22,1,o.hoodie); P(5,27,o.hoodieSh); P(26,27,o.hoodieSh);
+  R(5,28,22,1,OL); R(6,28,20,1,o.hoodie);
+  R(6,29,20,1,OL); R(7,29,18,1,o.hoodieSh);
+  // Arms outline
+  for(let i=23;i<=28;i++){P(3,i,OL);P(28,i,OL);}
+  P(4,23,o.hoodie); P(27,23,o.hoodie);
+  P(4,24,o.hoodieSh); P(27,24,o.hoodieSh);
+  // Kangaroo pocket (white/cream rectangle)
+  R(11,25,10,3,o.pocket); R(12,25,8,1,o.pocketSh);
+  P(11,25,OL); P(20,25,OL); P(11,27,OL); P(20,27,OL); // pocket corners
+
+  // Hands (skin, in pocket)
+  R(5,28,4,1,o.skin); R(23,28,4,1,o.skin);
+  P(5,28,OL); P(8,28,OL); P(23,28,OL); P(26,28,OL);
+  P(5,29,OL); P(8,29,OL); P(23,29,OL); P(26,29,OL);
+  R(6,29,2,1,o.skin); R(24,29,2,1,o.skin);
+
+  // === PANTS (jeans, blue) ===
+  R(8,30,16,1,OL); R(9,30,14,1,o.pants);
+  R(8,31,16,1,OL); R(9,31,14,1,o.pants); P(10,31,o.pantsHi);
+  R(8,32,16,1,OL); R(9,32,14,1,o.pants);
+  // Crotch split
+  P(15,33,OL); P(16,33,OL);
+  R(8,33,7,1,OL); R(17,33,7,1,OL); R(9,33,5,1,o.pants); R(18,33,5,1,o.pants);
+  R(8,34,7,1,OL); R(17,34,7,1,OL); R(9,34,5,1,o.pants); R(18,34,5,1,o.pants);
+  R(8,35,7,1,OL); R(17,35,7,1,OL); R(9,35,5,1,o.pantsSh); R(18,35,5,1,o.pantsSh);
+  R(7,36,8,1,OL); R(17,36,8,1,OL); R(8,36,6,1,o.pants); R(18,36,6,1,o.pants);
+  // Cuff fold
+  R(7,37,8,1,OL); R(17,37,8,1,OL); R(8,37,6,1,o.pantsHi); R(18,37,6,1,o.pantsHi);
+
+  // === SHOES (gray sneakers) ===
+  R(6,38,9,1,OL); R(17,38,9,1,OL);
+  R(7,38,7,1,o.shoe); R(18,38,7,1,o.shoe); P(8,38,o.shoeHi); P(19,38,o.shoeHi);
+  R(6,39,9,1,OL); R(17,39,9,1,OL);
+  R(7,39,7,1,o.shoeSh); R(18,39,7,1,o.shoeSh);
+  // Sole
+  R(5,40,10,1,OL); R(16,40,10,1,OL);
+  R(6,40,8,1,o.soleSh); R(17,40,8,1,o.soleSh);
+
+  // === SHADOW ===
+  x.fillStyle = 'rgba(0,0,0,0.08)';
+  x.beginPath();
+  x.ellipse(16*S, 42*S, 10*S, 2*S, 0, 0, Math.PI*2);
+  x.fill();
+}
+
+function initMinimis() {
+  drawMinimi('yongCanvas');
+  drawMinimi('friendCanvas', {
+    cap:'#8B3030', capHi:'#A04040', capDk:'#6B2020', capBrim:'#7B2828',
+    hair:'#8B5E3C', hairHi:'#A07050', hairDk:'#5A3020',
+    hoodie:'#E08080', hoodieSh:'#B06060', hoodieHi:'#F0A0A0', hoodieDk:'#A05050',
+    pocket:'#F0E0E0', pocketSh:'#E0D0D0',
+    pants:'#8B6090', pantsSh:'#5A3860', pantsHi:'#A078B0',
+    shoe:'#F0A0C0', shoeSh:'#D08090', shoeHi:'#F8C0D0', soleSh:'#C07888'
+  });
+}
+initMinimis();
+
+// ===== 미니미 드래그 이동 =====
+(function(){
+  let dragAvatar = null, avOff = [0,0];
+  function onDown(e) {
+    const av = e.target.closest('.avatar');
+    if (!av) return;
+    dragAvatar = av;
+    avOff = [e.clientX - av.offsetLeft, e.clientY - av.offsetTop];
+    e.preventDefault();
+  }
+  function onMove(e) {
+    if (!dragAvatar) return;
+    const room = document.getElementById('room').getBoundingClientRect();
+    let nx = e.clientX - avOff[0], ny = e.clientY - avOff[1];
+    nx = Math.max(0, Math.min(room.width - 40, nx));
+    ny = Math.max(60, Math.min(room.height - 20, ny));
+    dragAvatar.style.left = nx + 'px';
+    dragAvatar.style.top = ny + 'px';
+  }
+  function onUp() {
+    if (dragAvatar) {
+      localStorage.setItem('miniroom_av_' + dragAvatar.id, JSON.stringify({l:dragAvatar.style.left,t:dragAvatar.style.top}));
+    }
+    dragAvatar = null;
+  }
+  document.querySelectorAll('.avatar').forEach(a => {
+    a.addEventListener('mousedown', onDown);
+    a.addEventListener('touchstart', function(e){ const t=e.touches[0]; onDown({target:e.target,clientX:t.clientX,clientY:t.clientY,preventDefault:()=>e.preventDefault()}); }, {passive:false});
+  });
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', function(e){ if(!dragAvatar) return; const t=e.touches[0]; onMove({clientX:t.clientX,clientY:t.clientY}); e.preventDefault(); }, {passive:false});
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchend', onUp);
+  // Restore positions
+  ['yongAvatar','friendAvatar'].forEach(id => {
+    const saved = localStorage.getItem('miniroom_av_' + id);
+    if (saved) { const p = JSON.parse(saved); const el = document.getElementById(id); if(el){el.style.left=p.l;el.style.top=p.t;} }
+  });
+})();
+
+// ===== 가구 90도 회전 (더블클릭) =====
+document.getElementById('fsvg').addEventListener('dblclick', function(e) {
+  const g = e.target.closest('.furn-group');
+  if (!g) return;
+  const id = g.dataset.id;
+  if (WALL_IDS.includes(id)) return; // 벽 아이템은 회전 불가
+  const f = FURN.find(f=>f.id===id);
+  if (!f) return;
+  // w와 d를 교환 (90도 회전)
+  const tmp = f.w;
+  f.w = f.d;
+  f.d = tmp;
+  renderFurniture();
+  // Save
+  const positions = {};
+  FURN.forEach(f => { positions[f.id] = {x:f.x, y:f.y, z:f.z, w:f.w, d:f.d}; });
+  dbPut('furnPositions', positions);
+  notify(f.label + ' 회전!');
+});
+
+// ===== DRAG FURNITURE (wall + floor) =====
+let dragFurn = null, dragOff = [0,0], dragMoved = false, dragStartXY = [0,0];
+const WALL_IDS = ['frame','window','clock']; // items on back wall (y~0), move x/z
+
+document.getElementById('fsvg').addEventListener('mousedown', function(e) {
+  const g = e.target.closest('.furn-group');
+  if (!g) return;
+  const id = g.dataset.id;
+  dragFurn = FURN.find(f=>f.id===id);
+  if (!dragFurn) return;
+  dragMoved = false;
+  dragStartXY = [e.clientX, e.clientY];
+  const room = document.getElementById('room').getBoundingClientRect();
+  const sx = e.clientX - room.left, sy = e.clientY - room.top;
+  const isWall = WALL_IDS.includes(id);
+  const cz = isWall ? dragFurn.z + dragFurn.h/2 : 0;
+  const center = iso(dragFurn.x + dragFurn.w/2, dragFurn.y + dragFurn.d/2, cz);
+  dragOff = [sx - center[0], sy - center[1]];
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', function(e) {
+  if (!dragFurn) return;
+  const dx = e.clientX - dragStartXY[0], dy = e.clientY - dragStartXY[1];
+  if (!dragMoved && Math.abs(dx) + Math.abs(dy) > 4) dragMoved = true;
+  if (!dragMoved) return;
+
+  const room = document.getElementById('room').getBoundingClientRect();
+  const sx = e.clientX - room.left - dragOff[0];
+  const sy = e.clientY - room.top - dragOff[1];
+  const isWall = WALL_IDS.includes(dragFurn.id);
+
+  if (isWall) {
+    // Wall items: move x and z, keep y fixed (on back wall)
+    // iso(x,y,z) = [410+(y-x), 245+(x+y)/3-z]
+    // screenX = 410 + fixedY - x  =>  x = 410 + fixedY - screenX
+    const fixedY = dragFurn.y;
+    const newX = 410 + fixedY - sx - dragFurn.w/2;
+    const newZ = 245 + (newX + dragFurn.w/2 + fixedY)/3 - sy - dragFurn.h/2;
+    dragFurn.x = Math.max(0, Math.min(300, newX));
+    dragFurn.z = Math.max(0, Math.min(180, newZ));
+  } else {
+    // Floor items: move x and y, keep z fixed
+    const ix = ((sy - 245) * 3 - (sx - 410)) / 2 - dragFurn.w / 2;
+    const iy = ((sx - 410) + (sy - 245) * 3) / 2 - dragFurn.d / 2;
+    dragFurn.x = Math.max(0, Math.min(320, ix));
+    dragFurn.y = Math.max(0, Math.min(320, iy));
+  }
+  renderFurniture();
+});
+
+document.addEventListener('mouseup', function() {
+  if (dragFurn) {
+    if (!dragMoved) {
+      // Click (no drag) — trigger file pickers
+      const id = dragFurn.id;
+      if (id==='frame') document.getElementById('inPhoto').click();
+      else if (id==='tv') document.getElementById('inVideo').click();
+      else if (id==='bookshelf') document.getElementById('inFile').click();
+    } else {
+      // Save positions after drag
+      const positions = {};
+      FURN.forEach(f => { positions[f.id] = {x:f.x, y:f.y, z:f.z, w:f.w, d:f.d}; });
+      dbPut('furnPositions', positions);
+    }
+    dragFurn = null;
+  }
+});
+
+// Touch support for mobile drag
+document.getElementById('fsvg').addEventListener('touchstart', function(e) {
+  const t = e.touches[0];
+  const g = document.elementFromPoint(t.clientX, t.clientY);
+  const fg = g && g.closest('.furn-group');
+  if (!fg) return;
+  const id = fg.dataset.id;
+  dragFurn = FURN.find(f=>f.id===id);
+  if (!dragFurn) return;
+  dragMoved = false;
+  dragStartXY = [t.clientX, t.clientY];
+  const room = document.getElementById('room').getBoundingClientRect();
+  const sx = t.clientX - room.left, sy = t.clientY - room.top;
+  const isWall = WALL_IDS.includes(id);
+  const cz = isWall ? dragFurn.z + dragFurn.h/2 : 0;
+  const center = iso(dragFurn.x + dragFurn.w/2, dragFurn.y + dragFurn.d/2, cz);
+  dragOff = [sx - center[0], sy - center[1]];
+  e.preventDefault();
+}, {passive:false});
+document.addEventListener('touchmove', function(e) {
+  if (!dragFurn) return;
+  const t = e.touches[0];
+  const fakeE = {clientX:t.clientX, clientY:t.clientY};
+  const dx = fakeE.clientX - dragStartXY[0], dy = fakeE.clientY - dragStartXY[1];
+  if (!dragMoved && Math.abs(dx)+Math.abs(dy)>4) dragMoved = true;
+  if (!dragMoved) return;
+  const room = document.getElementById('room').getBoundingClientRect();
+  const sx = fakeE.clientX - room.left - dragOff[0];
+  const sy = fakeE.clientY - room.top - dragOff[1];
+  const isWall = WALL_IDS.includes(dragFurn.id);
+  if (isWall) {
+    const fixedY = dragFurn.y;
+    const newX = 410 + fixedY - sx - dragFurn.w/2;
+    const newZ = 245 + (newX+dragFurn.w/2+fixedY)/3 - sy - dragFurn.h/2;
+    dragFurn.x = Math.max(0, Math.min(300, newX));
+    dragFurn.z = Math.max(0, Math.min(180, newZ));
+  } else {
+    const ix = ((sy-245)*3-(sx-410))/2-dragFurn.w/2;
+    const iy = ((sx-410)+(sy-245)*3)/2-dragFurn.d/2;
+    dragFurn.x = Math.max(0, Math.min(320, ix));
+    dragFurn.y = Math.max(0, Math.min(320, iy));
+  }
+  renderFurniture();
+  e.preventDefault();
+}, {passive:false});
+document.addEventListener('touchend', function() {
+  if (dragFurn && !dragMoved) {
+    const id = dragFurn.id;
+    if (id==='frame') document.getElementById('inPhoto').click();
+    else if (id==='tv') document.getElementById('inVideo').click();
+    else if (id==='bookshelf') document.getElementById('inFile').click();
+  }
+  if (dragFurn && dragMoved) {
+    const positions = {};
+    FURN.forEach(f => { positions[f.id] = {x:f.x, y:f.y, z:f.z, w:f.w, d:f.d}; });
+    dbPut('furnPositions', positions);
+  }
+  dragFurn = null;
+});
+
+// Furniture positions restored in init() after openDB()
+
+// ===== PHOTO SLIDESHOW =====
+const photos = [];
+let photoIdx = 0, slideTimer = null;
+async function addPhotos(files) {
+  const fl = Array.from(files);
+  const rem = 10 - photos.length;
+  if (rem <= 0) { notify('최대 10장!'); return; }
+  const added = fl.slice(0, rem);
+  for (const f of added) {
+    const dataUrl = await fileToDataURL(f);
+    photos.push(dataUrl);
+  }
+  await dbPut('photos', photos);
+  photoIdx = photos.length - added.length;
+  showPhoto();
+  startSlideshow();
+  notify(added.length + '장 액자에 걸림!');
+}
+function startSlideshow() {
+  if (photos.length > 1 && !slideTimer) slideTimer = setInterval(() => { photoIdx = (photoIdx+1)%photos.length; showPhoto(); }, 1000);
+}
+function showPhoto() {
+  const img = document.getElementById('framePhoto');
+  if (!img) return;
+  img.src = photos[photoIdx]; img.style.display = 'block';
+  const ph = document.getElementById('framePH'); if(ph) ph.style.display='none';
+  const c = document.getElementById('frameCtr'); if(c){c.style.display='block'; c.textContent=(photoIdx+1)+'/'+photos.length;}
+}
+
+// ===== VIDEO + RETRO TV CONTROLS =====
+function showTVWrap() {
+  const w = document.getElementById('tvWrap'); if(w) w.style.display='block';
+  const c = document.getElementById('tvCtrl'); if(c) c.style.display='flex';
+  const ph = document.getElementById('tvPH'); if(ph) ph.style.display='none';
+}
+function toggleTV() {
+  const v = document.getElementById('tvVideo'); if(!v) return;
+  if (v.paused) { v.play(); document.getElementById('tvPlayBtn').innerHTML='&#9646;&#9646;'; }
+  else { v.pause(); document.getElementById('tvPlayBtn').innerHTML='&#9654;'; }
+}
+function seekTV(e) {
+  const v = document.getElementById('tvVideo');
+  const bar = document.getElementById('tvProg');
+  if(!v||!bar||!v.duration) return;
+  const rect = bar.getBoundingClientRect();
+  v.currentTime = ((e.clientX - rect.left) / rect.width) * v.duration;
+}
+function setTVVol(e) {
+  const v = document.getElementById('tvVideo');
+  const bar = e.currentTarget;
+  const rect = bar.getBoundingClientRect();
+  const vol = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  v.volume = vol;
+  document.getElementById('tvVolFill').style.width = (vol*100)+'%';
+}
+function toggleTVFull() {
+  const v = document.getElementById('tvVideo');
+  if(v.requestFullscreen) v.requestFullscreen();
+  else if(v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+}
+function updateTVProgress() {
+  const v = document.getElementById('tvVideo'); if(!v||!v.duration) return;
+  const pct = (v.currentTime / v.duration) * 100;
+  const fill = document.getElementById('tvProgFill'); if(fill) fill.style.width = pct+'%';
+  const m = Math.floor(v.currentTime/60), s = Math.floor(v.currentTime%60);
+  const tm = document.getElementById('tvTime'); if(tm) tm.textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+setInterval(updateTVProgress, 200);
+
+async function setVideo(file) {
+  const v = document.getElementById('tvVideo');
+  if(!v) return;
+  v.src = URL.createObjectURL(file);
+  v.style.display = 'block';
+  showTVWrap();
+  notify('TV 영상 재생!');
+  // Upload to Supabase immediately (background)
+  try {
+    notify('영상 업로드 중...');
+    const blob = file;
+    const path = 'rooms/' + Date.now() + '_video.mp4';
+    const upRes = await fetch(SUPA_URL + '/storage/v1/object/media/' + path, {
+      method: 'POST',
+      headers: {'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'video/mp4','x-upsert':'true'},
+      body: blob
+    });
+    if (upRes.ok) {
+      const pubUrl = SUPA_URL + '/storage/v1/object/public/media/' + path;
+      await dbPut('video', pubUrl);
+      await dbPut('videoUrl', pubUrl);
+      notify('영상 업로드 완료!');
+    } else {
+      // Fallback: save data URL locally
+      const dataUrl = await fileToDataURL(file);
+      await dbPut('video', dataUrl);
+      notify('영상 저장됨 (로컬)');
+    }
+  } catch(e) {
+    const dataUrl = await fileToDataURL(file);
+    await dbPut('video', dataUrl);
+    console.warn('Video upload failed, saved locally', e);
+  }
+}
+
+// ===== BOOKSHELF =====
+const BOOK_COLORS = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F','#BB8FCE','#85C1E9','#F0B27A','#82E0AA'];
+const bookFiles = [];
+async function addBook(file) {
+  const dataUrl = await fileToDataURL(file);
+  bookFiles.push({name: file.name, size: file.size, dataUrl: dataUrl});
+  await dbPut('books', bookFiles.map(b => ({name:b.name, size:b.size, dataUrl:b.dataUrl})));
+  renderBooks();
+}
+function renderBooks() {
+  const svg = document.getElementById('fsvg');
+  svg.querySelectorAll('.book-el').forEach(e => e.remove());
+  const bs = FURN.find(f=>f.id==='bookshelf');
+  const shelfH = bs.h / 4;
+  const sd = 3; // shelf thickness
+  const maxPerShelf = 10;
+  bookFiles.forEach((file, i) => {
+    const shelf = Math.floor(i / maxPerShelf);
+    const pos = i % maxPerShelf;
+    if (shelf >= 4) return;
+    // Book width based on file size (thicker for larger files)
+    const sizeKB = (file.size || 1024) / 1024;
+    const bw = Math.max(4, Math.min(9, 3 + sizeKB / 200));
+    // Filename hash for color and height variation
+    const fname = file.name || 'file';
+    let fh = 0; for(let c of fname) fh = ((fh<<5)-fh)+c.charCodeAt(0);
+    const col = BOOK_COLORS[Math.abs(fh) % BOOK_COLORS.length];
+    const bh = shelfH - sd - 6 - (Math.abs(fh) % 6); // varying height
+    const bd = 14; // book depth (pages go back into shelf)
+    const bx = bs.x + 5 + pos * (bs.w - 10) / maxPerShelf;
+    const bz = shelf * shelfH + sd + 2;
+    const spineY = bs.y + bs.d - 4; // spine recessed 4 units inside shelf front
+    const backY = spineY - bd; // pages extend back into shelf
+    // Darken/lighten color helper
+    const darken = (c, amt) => {
+      const n = parseInt(c.slice(1),16);
+      const r = Math.max(0,(n>>16)-amt), g = Math.max(0,((n>>8)&0xff)-amt), b = Math.max(0,(n&0xff)-amt);
+      return `rgb(${r},${g},${b})`;
+    };
+    const lighten = (c, amt) => {
+      const n = parseInt(c.slice(1),16);
+      const r = Math.min(255,(n>>16)+amt), g = Math.min(255,((n>>8)&0xff)+amt), b = Math.min(255,(n&0xff)+amt);
+      return `rgb(${r},${g},${b})`;
+    };
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('book-el');
+    g.style.cursor = 'pointer';
+    // Book spine (front face - flush with shelf front)
+    const sp = [[bx,spineY,bz],[bx+bw,spineY,bz],[bx+bw,spineY,bz+bh],[bx,spineY,bz+bh]];
+    const spine = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    spine.setAttribute('points', sp.map(v=>iso(...v).map(n=>n.toFixed(1)).join(',')).join(' '));
+    spine.setAttribute('fill', col);
+    spine.setAttribute('stroke', darken(col,40));
+    spine.setAttribute('stroke-width', '0.5');
+    g.appendChild(spine);
+    // Book top face (pages visible from above)
+    const tp = [[bx,backY,bz+bh],[bx+bw,backY,bz+bh],[bx+bw,spineY,bz+bh],[bx,spineY,bz+bh]];
+    const topF = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    topF.setAttribute('points', tp.map(v=>iso(...v).map(n=>n.toFixed(1)).join(',')).join(' '));
+    topF.setAttribute('fill', lighten(col,30));
+    topF.setAttribute('stroke', darken(col,20));
+    topF.setAttribute('stroke-width', '0.3');
+    g.appendChild(topF);
+    // Book side face (right edge - page edges)
+    const sf = [[bx+bw,backY,bz],[bx+bw,spineY,bz],[bx+bw,spineY,bz+bh],[bx+bw,backY,bz+bh]];
+    const sideF = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    sideF.setAttribute('points', sf.map(v=>iso(...v).map(n=>n.toFixed(1)).join(',')).join(' '));
+    sideF.setAttribute('fill', '#FFFBE8'); // page edges color
+    sideF.setAttribute('stroke', '#D0C8B0');
+    sideF.setAttribute('stroke-width', '0.3');
+    g.appendChild(sideF);
+    // Title text on spine (vertical, abbreviated)
+    const spMid = iso(bx + bw/2, spineY, bz + bh/2);
+    const title = fname.replace(/\.[^.]+$/,'');
+    const shortTitle = title.length > 4 ? title.slice(0,4) : title;
+    const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x', spMid[0]);
+    txt.setAttribute('y', spMid[1]);
+    txt.setAttribute('text-anchor','middle');
+    txt.setAttribute('dominant-baseline','middle');
+    txt.setAttribute('font-size', Math.min(6, bw * 0.8));
+    txt.setAttribute('fill', darken(col,80));
+    txt.setAttribute('font-weight', '700');
+    txt.setAttribute('font-family', 'Nanum Gothic, sans-serif');
+    txt.setAttribute('writing-mode', 'tb');
+    txt.textContent = shortTitle;
+    g.appendChild(txt);
+    // Events
+    g.addEventListener('mouseenter', e => {
+      const tt = document.getElementById('bookTT');
+      tt.textContent = fname; tt.style.display = 'block';
+      tt.style.left = e.clientX+'px'; tt.style.top = (e.clientY-26)+'px';
+    });
+    g.addEventListener('mousemove', e => {
+      const tt = document.getElementById('bookTT');
+      tt.style.left = e.clientX+'px'; tt.style.top = (e.clientY-26)+'px';
+    });
+    g.addEventListener('mouseleave', () => { document.getElementById('bookTT').style.display='none'; });
+    g.addEventListener('click', e => {
+      e.stopPropagation();
+      const dataUrl = file.dataUrl || '';
+      if (dataUrl) {
+        const a = document.createElement('a'); a.href = dataUrl; a.download = fname; a.click();
+      }
+    });
+    svg.appendChild(g);
+  });
+}
+
+// ===== BGM =====
+let bgmOn = false;
+async function setBGM(file) {
+  const a = document.getElementById('bgmAudio');
+  a.src = URL.createObjectURL(file);
+  const name = file.name.replace(/\.[^.]+$/,'');
+  document.getElementById('bgmTitle').textContent = name;
+  document.getElementById('bgmBtn').disabled = false;
+  a.play().then(()=>{bgmOn=true;document.getElementById('bgmBtn').innerHTML='&#9646;&#9646;';notify('BGM 재생!');})
+   .catch(()=>{notify('재생 버튼을 눌러주세요!');});
+  // Upload to Supabase immediately (background)
+  try {
+    const path = 'rooms/' + Date.now() + '_bgm.mp3';
+    const upRes = await fetch(SUPA_URL + '/storage/v1/object/media/' + path, {
+      method: 'POST',
+      headers: {'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'audio/mpeg','x-upsert':'true'},
+      body: file
+    });
+    if (upRes.ok) {
+      const pubUrl = SUPA_URL + '/storage/v1/object/public/media/' + path;
+      await dbPut('bgm', {data: pubUrl, name: name});
+      await dbPut('bgmUrl', pubUrl);
+    } else {
+      const dataUrl = await fileToDataURL(file);
+      await dbPut('bgm', {data: dataUrl, name: name});
+    }
+  } catch(e) {
+    const dataUrl = await fileToDataURL(file);
+    await dbPut('bgm', {data: dataUrl, name: name});
+    console.warn('BGM upload failed, saved locally', e);
+  }
+}
+function toggleBGM() {
+  const a = document.getElementById('bgmAudio');
+  if (bgmOn) { a.pause(); bgmOn=false; document.getElementById('bgmBtn').innerHTML='&#9654;'; }
+  else { a.play(); bgmOn=true; document.getElementById('bgmBtn').innerHTML='&#9646;&#9646;'; }
+}
+
+// ===== AI THEME ENGINE =====
+const ROOM_THEMES = {
+  ocean: {
+    name: '🌊 오션', body: '#D0E0E8',
+    wl: '#C0DDEF', wr: '#A8D0E8',
+    wc: '#5898B8', room: '#88C8E8',
+    fl: '#E8D8B0',
+    bl: '#5898B8', br: '#4888A8',
+    border: '#90B8D0', sofa: {top:'#58A8D8',left:'#4898C8',right:'#3888B8'},
+    desk: {top:'#C8B890',left:'#B0A078',right:'#988A68'}, wrap: '#E0ECF0'
+  },
+  forest: {
+    name: '🌲 포레스트', body: '#D8E0D0',
+    wl: '#C0D8B8', wr: '#A8C8A0',
+    wc: '#608860', room: '#A0C8A0',
+    fl: '#C8A878',
+    bl: '#608860', br: '#507850',
+    border: '#90B090', sofa: {top:'#80C080',left:'#68B068',right:'#50A050'},
+    desk: {top:'#A08870',left:'#887060',right:'#785848'}, wrap: '#E0E8D8'
+  },
+  space: {
+    name: '🌌 우주', body: '#181828',
+    wl: '#282848', wr: '#201840',
+    wc: '#4848A0', room: '#101028',
+    fl: '#282840',
+    bl: '#4848A0', br: '#3838A0',
+    border: '#4848A0', sofa: {top:'#7868E8',left:'#6858D0',right:'#5848B8'},
+    desk: {top:'#484088',left:'#383070',right:'#282060'}, wrap: '#202038'
+  },
+  sunset: {
+    name: '🌅 선셋', body: '#E8DCC8',
+    wl: '#F0C880', wr: '#E8B860',
+    wc: '#D08800', room: '#F0D8A8',
+    fl: '#E0C088',
+    bl: '#D08800', br: '#C07800',
+    border: '#D0A850', sofa: {top:'#F08860',left:'#E07048',right:'#D05830'},
+    desk: {top:'#D0A070',left:'#C09060',right:'#B08050'}, wrap: '#F0E0D0'
+  },
+  cherry: {
+    name: '🌸 체리블라썸', body: '#E8DDD4',
+    wl: '#FFDDE5', wr: '#FFD0DB',
+    wc: '#C89098', room: '#C8DDF0',
+    fl: '#DCC088',
+    bl: '#B08878', br: '#A07868',
+    border: '#C8B8A8', sofa: {top:'#FFC8D8',left:'#FFB5C8',right:'#FFA0B8'},
+    desk: {top:'#D4A574',left:'#B8895E',right:'#A07A52'}, wrap: '#F5EDE5'
+  },
+  music: {
+    name: '🎵 뮤직', body: '#D8D0E0',
+    wl: '#D8B8E0', wr: '#C8A0D0',
+    wc: '#8828A8', room: '#C8B8D8',
+    fl: '#D0C0E0',
+    bl: '#8828A8', br: '#7818A0',
+    border: '#B888C8', sofa: {top:'#B868C8',left:'#A848B8',right:'#9828A8'},
+    desk: {top:'#9070C0',left:'#7858B0',right:'#6840A0'}, wrap: '#E0D8E8'
+  },
+  cafe: {
+    name: '☕ 카페', body: '#D8D0C8',
+    wl: '#D0C0B0', wr: '#C0B0A0',
+    wc: '#785848', room: '#C8B8A8',
+    fl: '#987060',
+    bl: '#785848', br: '#684838',
+    border: '#B0A090', sofa: {top:'#A08870',left:'#887060',right:'#785848'},
+    desk: {top:'#685040',left:'#584030',right:'#483020'}, wrap: '#E0D8D0'
+  },
+  cyberpunk: {
+    name: '🤖 사이버펑크', body: '#101018',
+    wl: '#180828', wr: '#100420',
+    wc: '#F00068', room: '#080810',
+    fl: '#181828',
+    bl: '#F00068', br: '#00E8C8',
+    border: '#F00068', sofa: {top:'#F00068',left:'#D00058',right:'#A80048'},
+    desk: {top:'#3808A0',left:'#280880',right:'#180860'}, wrap: '#181028'
+  }
+};
+
+let currentTheme = 'cherry';
+
+function applyTheme(themeId) {
+  const t = ROOM_THEMES[themeId];
+  if (!t) return;
+  currentTheme = themeId;
+  localStorage.setItem('miniroom_theme', themeId);
+  // Body
+  document.body.style.background = t.body;
+  // Walls
+  document.querySelector('.wl').style.background = t.wl;
+  document.querySelector('.wr').style.background = t.wr;
+  document.querySelector('.wc').style.background = t.wc;
+  // Floor
+  const fl = document.querySelector('.fl');
+  const flClip = fl.style.clipPath || getComputedStyle(fl).clipPath;
+  fl.style.background = t.fl;
+  fl.style.clipPath = flClip; // preserve clip-path
+  // Room bg
+  document.querySelector('.room').style.background = t.room;
+  // Room wrap border
+  document.querySelector('.room-wrap').style.borderColor = t.border;
+  document.querySelector('.room-wrap').style.background = t.wrap;
+  // Baseboards (need to use pseudo-element workaround via CSS variable)
+  document.documentElement.style.setProperty('--bl-bg', t.bl);
+  document.documentElement.style.setProperty('--br-bg', t.br);
+  // Toolbar border
+  document.querySelector('.toolbar').style.borderColor = t.border;
+  // Update sofa & desk colors
+  const sofa = FURN.find(f => f.id === 'sofa');
+  if (sofa && t.sofa) { sofa.colors = t.sofa; }
+  const desk = FURN.find(f => f.id === 'desk');
+  if (desk && t.desk) { desk.colors = t.desk; }
+  renderFurniture();
+  // Theme tag
+  const tag = document.getElementById('themeTag');
+  tag.textContent = t.name;
+  tag.style.display = 'block';
+  tag.style.borderColor = t.border;
+  // Re-render books & overlays
+  renderBooks();
+  notify('테마 적용: ' + t.name);
+}
+
+async function extractBookTexts() {
+  let texts = [];
+  for (const b of bookFiles) {
+    texts.push('파일명: ' + b.name);
+    if (b.dataUrl && b.dataUrl.startsWith('data:text')) {
+      try {
+        const content = decodeURIComponent(escape(atob(b.dataUrl.split(',')[1])));
+        texts.push(content.substring(0, 500));
+      } catch(e) {}
+    } else if (b.dataUrl && b.dataUrl.startsWith('data:application/pdf')) {
+      texts.push('[PDF 파일]');
+    }
+  }
+  return texts.join('\n');
+}
+
+async function callGeminiAI(text) {
+  const key = localStorage.getItem('miniroom_gemini_key');
+  if (!key) return null;
+  const prompt = `다음은 사용자의 미니룸 서재에 있는 파일/문서 목록이다. 이 내용을 분석해서 가장 어울리는 방 테마 1개를 골라줘.
+
+파일 내용:
+${text}
+
+선택 가능한 테마: ocean(바다/여행/자연), forest(숲/힐링/자연/에코), space(우주/과학/기술/미래), sunset(따뜻한/감성/노을), cherry(사랑/귀여운/달콤), music(음악/예술/창작), cafe(커피/독서/일상/공부), cyberpunk(게임/코딩/SF/테크)
+
+반드시 테마 ID 하나만 답해. 예: ocean`;
+
+  try {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({contents: [{parts: [{text: prompt}]}]})
+    });
+    if (!res.ok) throw new Error('API error: ' + res.status);
+    const data = await res.json();
+    const answer = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase() || '';
+    // Extract theme ID from response
+    for (const id of Object.keys(ROOM_THEMES)) {
+      if (answer.includes(id)) return id;
+    }
+    return null;
+  } catch(e) {
+    console.warn('Gemini API error:', e);
+    notify('AI 호출 실패: ' + e.message);
+    return null;
+  }
+}
+
+// Keyword-based theme detection (works without API)
+function detectThemeByKeywords(text) {
+  const t = text.toLowerCase();
+  const scores = {};
+  const rules = {
+    ocean: ['바다','해양','여행','travel','ocean','sea','beach','island','섬','서핑','surf','fish','수영','다이빙','cruise','해변'],
+    forest: ['숲','자연','nature','forest','tree','나무','eco','환경','plant','식물','green','산','mountain','hiking','등산','캠핑','garden'],
+    space: ['우주','space','nasa','별','star','과학','science','로켓','rocket','화성','mars','moon','달','galaxy','블랙홀','quantum','물리','physics','천문'],
+    sunset: ['노을','sunset','따뜻','warm','감성','emotion','사랑','love','romantic','가을','autumn','황금','golden','빛','light','석양'],
+    music: ['음악','music','노래','song','악기','instrument','piano','guitar','기타','drum','concert','콘서트','jazz','hip','rock','클래식','classical','작곡','rhythm','beat','playlist'],
+    cafe: ['커피','coffee','cafe','카페','독서','reading','책','book','공부','study','라떼','latte','에스프레소','espresso','디저트','dessert','브런치'],
+    cyberpunk: ['게임','game','코딩','coding','프로그래밍','programming','python','javascript','AI','인공지능','robot','로봇','cyber','해킹','hacking','tech','기술','algorithm','dev','개발','컴퓨터','computer','data','서버','server'],
+    cherry: ['꽃','flower','봄','spring','핑크','pink','귀여운','cute','달콤','sweet','cherry','벚꽃','사쿠라','토끼','rabbit','하트','heart','소녀','girl']
+  };
+  for (const [theme, keywords] of Object.entries(rules)) {
+    scores[theme] = 0;
+    for (const kw of keywords) {
+      if (t.includes(kw)) scores[theme] += 1;
+    }
+  }
+  let best = null, bestScore = 0;
+  for (const [theme, score] of Object.entries(scores)) {
+    if (score > bestScore) { bestScore = score; best = theme; }
+  }
+  return bestScore > 0 ? best : null;
+}
+
+async function triggerAITheme() {
+  if (!bookFiles.length) {
+    notify('서재에 파일을 먼저 올려주세요!');
+    return;
+  }
+  notify('서재를 분석하고 있어요... 🎨');
+  const text = await extractBookTexts();
+
+  // Try AI first if key exists
+  const key = localStorage.getItem('miniroom_gemini_key');
+  if (key) {
+    const aiTheme = await callGeminiAI(text);
+    if (aiTheme) { applyTheme(aiTheme); return; }
+  }
+
+  // Fallback: keyword detection
+  const kwTheme = detectThemeByKeywords(text);
+  if (kwTheme) {
+    applyTheme(kwTheme);
+    return;
+  }
+
+  // No match: show AI key modal
+  document.getElementById('aiModal').classList.add('show');
+}
+
+async function saveAIKeyAndRun() {
+  const key = document.getElementById('aiKeyInput').value.trim();
+  if (!key) { notify('API 키를 입력해주세요!'); return; }
+  localStorage.setItem('miniroom_gemini_key', key);
+  document.getElementById('aiModal').classList.remove('show');
+  await triggerAITheme();
+}
+
+// ===== AVATAR PHOTO =====
+async function setFace(file) {
+  const dataUrl = await fileToDataURL(file);
+  document.getElementById('yongPhotoImg').src = dataUrl;
+  document.getElementById('yongPhoto').classList.add('has-img');
+  document.getElementById('yongBody').classList.add('has-photo');
+  await dbPut('face', dataUrl);
+  notify('아바타 사진 적용!');
+}
+
+// ===== 1촌 FRIEND + CHAT =====
+let chatHistory = JSON.parse(localStorage.getItem('miniroom_chat') || '[]');
+let friendName = localStorage.getItem('miniroom_friend') || '';
+
+function inviteFriend() {
+  const name = prompt('1촌 친구 이름을 입력하세요:');
+  if (!name) return;
+  friendName = name;
+  localStorage.setItem('miniroom_friend', name);
+  document.getElementById('friendName').textContent = name;
+  document.getElementById('friendAvatar').style.display = 'block';
+  document.getElementById('chatPanel').style.display = 'flex';
+  renderChat();
+  notify(name + ' 님이 입장했어요!');
+}
+
+let chatAsOwner = true; // default: chat as Yong (owner)
+function toggleSender() {
+  chatAsOwner = !chatAsOwner;
+  const label = document.getElementById('senderLabel');
+  label.textContent = chatAsOwner ? 'Yong' : (friendName || 'Friend');
+  label.style.color = chatAsOwner ? '#E75480' : '#8B6090';
+}
+let chatRoomId = localStorage.getItem('miniroom_chatRoom') || null;
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const from = chatAsOwner ? 'Yong' : (friendName || 'Friend');
+  const isFriend = !chatAsOwner;
+  const entry = { from, text: msg, time: new Date().toLocaleTimeString('ko',{hour:'2-digit',minute:'2-digit'}), isFriend };
+  chatHistory.push(entry);
+  localStorage.setItem('miniroom_chat', JSON.stringify(chatHistory));
+  renderChat();
+  showSpeechBubble(from, msg, isFriend);
+  // Sync to Firebase
+  if (chatRoomId) {
+    fbDB.ref('chats/' + chatRoomId).push(entry);
+  }
+}
+function listenChat(roomId) {
+  chatRoomId = roomId;
+  localStorage.setItem('miniroom_chatRoom', roomId);
+  fbDB.ref('chats/' + roomId).on('child_added', snap => {
+    const entry = snap.val();
+    // Avoid duplicates
+    const isDup = chatHistory.some(m => m.from === entry.from && m.text === entry.text && m.time === entry.time);
+    if (!isDup) {
+      chatHistory.push(entry);
+      localStorage.setItem('miniroom_chat', JSON.stringify(chatHistory));
+      renderChat();
+      showSpeechBubble(entry.from, entry.text, entry.isFriend);
+    }
+  });
+}
+
+function renderChat() {
+  const log = document.getElementById('chatLog');
+  log.innerHTML = chatHistory.map(m =>
+    `<div class="chat-msg${m.isFriend?' friend':''}"><b>${m.from}</b> <span style="color:#aaa;font-size:8px">${m.time}</span><br>${m.text}</div>`
+  ).join('');
+  log.scrollTop = log.scrollHeight;
+}
+
+function showSpeechBubble(name, text, isFriend) {
+  const room = document.getElementById('room');
+  const av = isFriend ? document.getElementById('friendAvatar') : document.getElementById('yongAvatar');
+  const bubble = document.createElement('div');
+  bubble.className = 'speech-float';
+  bubble.textContent = text;
+  bubble.style.left = (parseInt(av.style.left) - 10) + 'px';
+  bubble.style.top = (parseInt(av.style.top) - 30) + 'px';
+  room.appendChild(bubble);
+  setTimeout(() => bubble.remove(), 3000);
+}
+
+// Load saved state
+if (friendName) {
+  document.getElementById('friendName').textContent = friendName;
+  document.getElementById('friendAvatar').style.display = 'block';
+  document.getElementById('chatPanel').style.display = 'flex';
+  renderChat();
+  restoreFriendPhoto();
+}
+
+document.getElementById('chatInput').addEventListener('keydown', e => { if(e.key==='Enter') sendChat(); });
+
+// ===== EVENT LISTENERS =====
+document.getElementById('inPhoto').addEventListener('change', e => { if(e.target.files.length) addPhotos(e.target.files); e.target.value=''; });
+document.getElementById('inVideo').addEventListener('change', e => { if(e.target.files[0]) setVideo(e.target.files[0]); });
+document.getElementById('inFile').addEventListener('change', async e => {
+  for (const f of Array.from(e.target.files)) await addBook(f);
+  notify(e.target.files.length + '개 파일 서재에 꽂힘!');
+  e.target.value='';
+});
+document.getElementById('inBGM').addEventListener('change', e => { if(e.target.files[0]) setBGM(e.target.files[0]); });
+document.getElementById('inFace').addEventListener('change', e => { if(e.target.files[0]) setFace(e.target.files[0]); });
+
+// Drag & drop files
+const room = document.getElementById('room');
+room.addEventListener('dragenter', e=>{e.preventDefault();room.classList.add('dragover')});
+room.addEventListener('dragover', e=>e.preventDefault());
+room.addEventListener('dragleave', e=>{if(!room.contains(e.relatedTarget))room.classList.remove('dragover')});
+room.addEventListener('drop', e=>{
+  e.preventDefault(); room.classList.remove('dragover');
+  const imgs=[];
+  for(const f of e.dataTransfer.files){
+    if(f.type.startsWith('image/'))imgs.push(f);
+    else if(f.type.startsWith('video/'))setVideo(f);
+    else if(f.type.startsWith('audio/'))setBGM(f);
+    else{addBook(f);notify('파일 서재에 꽂힘!');}
+  }
+  if(imgs.length)addPhotos(imgs);
+});
+
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
+
+// ===== MODAL =====
+function showModal(title, desc, url) {
+  document.getElementById('modalTitle').innerHTML = title;
+  document.getElementById('modalDesc').textContent = desc;
+  document.getElementById('modalUrl').value = url;
+  document.getElementById('shareModal').classList.add('show');
+}
+function closeModal() { document.getElementById('shareModal').classList.remove('show'); }
+function copyToClipboard(text) {
+  // Try modern API first, fallback to execCommand
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  }
+  return fallbackCopy(text);
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  return Promise.resolve();
+}
+function copyModalUrl() {
+  const url = document.getElementById('modalUrl').value;
+  copyToClipboard(url).then(() => {
+    notify('링크가 클립보드에 복사되었어요!');
+    closeModal();
+  });
+}
+
+// ===== COMPRESS IMAGE FOR SHARING =====
+function compressImage(dataUrl, maxW, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      const scale = Math.min(1, maxW / img.width);
+      c.width = img.width * scale;
+      c.height = img.height * scale;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ===== BUILD ROOM STATE FOR SHARING =====
+async function buildRoomState() {
+  const state = {
+    furn: FURN.map(f => ({id:f.id, x:Math.round(f.x), y:Math.round(f.y), z:Math.round(f.z), w:f.w, d:f.d})),
+    friend: friendName,
+    chat: chatHistory.slice(-20),
+    owner: 'Yong',
+    chatRoomId: chatRoomId || fbDB.ref('chats').push().key,
+    theme: currentTheme
+  };
+  // Compress photos to small thumbnails
+  if (photos.length) {
+    state.photos = [];
+    for (const p of photos) {
+      state.photos.push(await compressImage(p, 200, 0.5));
+    }
+  }
+  // Books: include names (content too large for JSON blob)
+  if (bookFiles.length) {
+    state.books = bookFiles.map(b => ({name: b.name, size: b.size}));
+  }
+  // Video: use pre-uploaded Supabase URL
+  try {
+    const videoUrl = await dbGet('videoUrl');
+    if (videoUrl && videoUrl.startsWith('http')) {
+      state.videoUrl = videoUrl;
+    } else {
+      // Fallback: check if video data is already a URL
+      const videoData = await dbGet('video');
+      if (videoData) {
+        if (videoData.startsWith('http')) {
+          state.videoUrl = videoData;
+        } else {
+          // Data URL — try upload now
+          notify('영상 업로드 중...');
+          state.videoUrl = await supaUpload('video.mp4', videoData);
+        }
+      }
+    }
+  } catch(e) { console.warn('Video share failed', e); notify('영상 공유 실패'); }
+  // BGM: use pre-uploaded Supabase URL
+  try {
+    const bgmUrl = await dbGet('bgmUrl');
+    const bgmData = await dbGet('bgm');
+    if (bgmUrl && bgmUrl.startsWith('http')) {
+      state.bgmUrl = bgmUrl;
+      state.bgmName = bgmData ? bgmData.name : 'BGM';
+    } else if (bgmData) {
+      if (bgmData.data && bgmData.data.startsWith('http')) {
+        state.bgmUrl = bgmData.data;
+        state.bgmName = bgmData.name;
+      } else if (bgmData.data) {
+        notify('음원 업로드 중...');
+        state.bgmUrl = await supaUpload('bgm.mp3', bgmData.data);
+        state.bgmName = bgmData.name;
+      }
+    }
+  } catch(e) {
+    console.warn('BGM share failed', e);
+    const bgmTitle = document.getElementById('bgmTitle').textContent;
+    if (bgmTitle && bgmTitle !== 'BGM 없음') state.bgmName = bgmTitle;
+  }
+  // Face photo (compressed)
+  const faceImg = document.getElementById('yongPhotoImg');
+  if (faceImg && faceImg.src && faceImg.src.startsWith('data:')) {
+    state.face = await compressImage(faceImg.src, 60, 0.5);
+  }
+  return state;
+}
+
+// ===== BASE URL =====
+const BASE_URL = 'https://cafessava.github.io/miniroom/';
+
+// ===== BYTEBIN STORAGE =====
+async function saveToBlob(data) {
+  const res = await fetch('https://bytebin.lucko.me/post', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('저장 실패');
+  const j = await res.json();
+  if (!j.key) throw new Error('키 없음');
+  return j.key;
+}
+async function loadFromBlob(id) {
+  const res = await fetch('https://bytebin.lucko.me/' + id);
+  if (!res.ok) throw new Error('로딩 실패');
+  return res.json();
+}
+
+// ===== UPLOAD STATE =====
+async function uploadState(state) {
+  return await saveToBlob(state);
+}
+
+// ===== SHARE =====
+async function shareRoom() {
+  notify('링크 생성 중...');
+  try {
+    const state = await buildRoomState();
+    const blobId = await uploadState(state);
+    if (state.chatRoomId) listenChat(state.chatRoomId);
+    const url = BASE_URL + '#room=' + blobId;
+    showModal('&#128279; 공유하기', '이 링크를 카톡이나 SNS에 공유하면 상대방이 미니룸을 볼 수 있어요!', url);
+  } catch(e) { notify('링크 생성 실패: ' + e.message); }
+}
+
+// ===== INVITE FRIEND =====
+async function inviteFriend() {
+  notify('초대 링크 생성 중...');
+  try {
+    const state = await buildRoomState();
+    state.mode = 'invite';
+    const blobId = await uploadState(state);
+    if (state.chatRoomId) listenChat(state.chatRoomId);
+    const url = BASE_URL + '#invite=' + blobId;
+    showModal('&#128101; 1촌 초대', '이 링크를 친구에게 보내면 미니룸에 입장할 수 있어요!', url);
+  } catch(e) { notify('링크 생성 실패: ' + e.message); }
+}
+
+// Join screen for invited friends
+let joinPhotoData = null;
+document.getElementById('joinPhoto').addEventListener('change', function(e) {
+  if (e.target.files[0]) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      joinPhotoData = ev.target.result;
+      document.getElementById('joinPreviewImg').src = joinPhotoData;
+      document.getElementById('joinPreview').style.display = 'block';
+    };
+    reader.readAsDataURL(e.target.files[0]);
+  }
+});
+
+function completeJoin() {
+  const name = document.getElementById('joinName').value.trim();
+  if (!name) { alert('이름을 입력하세요!'); return; }
+  friendName = name;
+  chatAsOwner = false; // Invited friend chats as friend
+  document.getElementById('senderLabel').textContent = name;
+  document.getElementById('senderLabel').style.color = '#8B6090';
+  localStorage.setItem('miniroom_friend', name);
+  if (joinPhotoData) localStorage.setItem('miniroom_friend_photo', joinPhotoData);
+  document.getElementById('joinScreen').classList.remove('show');
+  document.getElementById('friendName').textContent = name;
+  document.getElementById('friendAvatar').style.display = 'block';
+  if (joinPhotoData) {
+    // Add photo to friend avatar minimi head
+    const fHead = document.querySelector('#friendAvatar .minimi-head');
+    if (fHead) {
+      let fImg = fHead.querySelector('img');
+      if (!fImg) { fImg = document.createElement('img'); fHead.appendChild(fImg); }
+      fImg.src = joinPhotoData;
+      fHead.classList.add('has-img');
+    }
+  }
+  document.getElementById('chatPanel').style.display = 'flex';
+  renderChat();
+  notify(name + ' 님이 입장했어요!');
+  // Add welcome message
+  const entry = { from: 'Yong', text: name + '님 환영해요~ &#127881;', time: new Date().toLocaleTimeString('ko',{hour:'2-digit',minute:'2-digit'}), isFriend: false };
+  chatHistory.push(entry);
+  localStorage.setItem('miniroom_chat', JSON.stringify(chatHistory));
+  renderChat();
+}
+
+// Restore content from shared state data
+async function restoreSharedContent(state) {
+  // Furniture positions + rotation
+  if (state.furn) {
+    state.furn.forEach(sf => {
+      const f = FURN.find(ff => ff.id === sf.id);
+      if (f) { f.x = sf.x; f.y = sf.y; f.z = sf.z; if(sf.w) f.w=sf.w; if(sf.d) f.d=sf.d; }
+    });
+    renderFurniture();
+  }
+  // Photos
+  if (state.photos && state.photos.length) {
+    photos.length = 0;
+    state.photos.forEach(p => photos.push(p));
+    showPhoto();
+    startSlideshow();
+  }
+  // Books (metadata only for shared view)
+  if (state.books && state.books.length) {
+    bookFiles.length = 0;
+    state.books.forEach(b => bookFiles.push({name: b.name, size: b.size, dataUrl: ''}));
+    renderBooks();
+  }
+  // Video from Supabase Storage URL
+  if (state.videoUrl) {
+    const v = document.getElementById('tvVideo');
+    if (v) {
+      v.src = state.videoUrl;
+      v.style.display = 'block'; v.muted = true;
+      showTVWrap();
+      v.addEventListener('loadeddata', () => {
+        v.play().then(()=>{document.getElementById('tvPlayBtn').innerHTML='&#9646;&#9646;';}).catch(()=>{});
+      }, {once: true});
+    }
+  }
+  // BGM from Supabase Storage URL
+  if (state.bgmUrl) {
+    const a = document.getElementById('bgmAudio');
+    a.src = state.bgmUrl;
+    document.getElementById('bgmTitle').textContent = state.bgmName || 'BGM';
+    document.getElementById('bgmBtn').disabled = false;
+  } else if (state.bgmName) {
+    document.getElementById('bgmTitle').textContent = state.bgmName;
+  }
+  // Theme
+  if (state.theme && ROOM_THEMES[state.theme]) {
+    applyTheme(state.theme);
+  }
+  // Owner face
+  if (state.face) {
+    document.getElementById('yongPhotoImg').src = state.face;
+    document.getElementById('yongPhoto').classList.add('has-img');
+  }
+  // Friend & chat
+  if (state.friend) {
+    friendName = state.friend;
+    document.getElementById('friendName').textContent = friendName;
+    document.getElementById('friendAvatar').style.display = 'block';
+    document.getElementById('chatPanel').style.display = 'flex';
+  }
+  if (state.chat && state.chat.length) {
+    chatHistory = state.chat;
+    renderChat();
+  }
+  // Start real-time chat sync
+  if (state.chatRoomId) {
+    listenChat(state.chatRoomId);
+    document.getElementById('chatPanel').style.display = 'flex';
+  }
+}
+
+// Load shared/invite state from URL hash
+let sharedState = null;
+async function loadSharedState() {
+  const hash = location.hash;
+  if (hash.startsWith('#invite=')) {
+    const idOrData = hash.slice(8);
+    try {
+      // Try blob ID first (short alphanumeric), fallback to legacy base64
+      if (idOrData.length < 100) {
+        sharedState = await loadFromBlob(idOrData);
+      } else {
+        sharedState = JSON.parse(decodeURIComponent(escape(atob(idOrData))));
+      }
+      document.getElementById('joinMsg').textContent = (sharedState.owner || 'Yong') + '님의 미니룸에 초대되었어요!';
+      document.getElementById('joinScreen').classList.add('show');
+      await restoreSharedContent(sharedState);
+    } catch(e) { console.warn('Invalid invite link', e); }
+    return;
+  }
+  if (!hash.startsWith('#room=')) return;
+  const idOrData = hash.slice(6);
+  try {
+    let state;
+    if (idOrData.length < 100) {
+      state = await loadFromBlob(idOrData);
+    } else {
+      state = JSON.parse(decodeURIComponent(escape(atob(idOrData))));
+    }
+    await restoreSharedContent(state);
+  } catch(e) { console.warn('Failed to load shared state', e); }
+}
+
+// Restore friend photo from localStorage
+function removeFriend() {
+  if (!confirm((friendName||'Friend') + ' 님을 삭제할까요?')) return;
+  friendName = '';
+  localStorage.removeItem('miniroom_friend');
+  localStorage.removeItem('miniroom_friend_photo');
+  chatHistory = [];
+  localStorage.removeItem('miniroom_chat');
+  document.getElementById('friendAvatar').style.display = 'none';
+  document.getElementById('chatPanel').style.display = 'none';
+  const fHead = document.querySelector('#friendAvatar .minimi-head');
+  if (fHead) { fHead.classList.remove('has-img'); const fi = fHead.querySelector('img'); if(fi) fi.src=''; }
+  notify('1촌이 삭제되었어요');
+}
+function restoreFriendPhoto() {
+  const photo = localStorage.getItem('miniroom_friend_photo');
+  if (photo && friendName) {
+    const fHead = document.querySelector('#friendAvatar .minimi-head');
+    if (fHead) {
+      let fImg = fHead.querySelector('img');
+      if (!fImg) { fImg = document.createElement('img'); fHead.appendChild(fImg); }
+      fImg.src = photo;
+      fHead.classList.add('has-img');
+    }
+  }
+}
+
+// Init
+async function init() {
+  const d = new Date().getDate();
+  document.getElementById('vc').textContent = 'Today '+(d%7+1)+' | Total '+(486+d);
+  await openDB();
+  const isShared = location.hash.startsWith('#room=') || location.hash.startsWith('#invite=');
+
+  // Restore furniture positions from IndexedDB (must be after openDB)
+  if (!isShared) {
+    try {
+      const saved = await dbGet('furnPositions');
+      if (saved) {
+        FURN.forEach(f => {
+          if (saved[f.id]) {
+            f.x = saved[f.id].x; f.y = saved[f.id].y; f.z = saved[f.id].z;
+            if (saved[f.id].w) f.w = saved[f.id].w;
+            if (saved[f.id].d) f.d = saved[f.id].d;
+          }
+        });
+      }
+    } catch(e) { console.warn('Furniture restore error:', e); }
+  }
+
+  await loadSharedState();
+  if (!isShared) renderFurniture();
+  // Restore saved theme
+  const savedTheme = localStorage.getItem('miniroom_theme');
+  if (savedTheme && ROOM_THEMES[savedTheme]) applyTheme(savedTheme);
+  // Restore saved content from local DB (skip if loaded from URL)
+  if (isShared) return;
+  await new Promise(r => setTimeout(r, 100));
+  try {
+    const savedPhotos = await dbGet('photos');
+    if (savedPhotos && savedPhotos.length) {
+      savedPhotos.forEach(p => photos.push(p));
+      showPhoto();
+      startSlideshow();
+    }
+    const savedVideo = await dbGet('video');
+    if (savedVideo) {
+      const v = document.getElementById('tvVideo');
+      if(v){
+        v.src = savedVideo;
+        v.style.display='block';
+        v.muted = true;
+        showTVWrap();
+        v.addEventListener('loadeddata', () => {
+          v.play().then(()=>{document.getElementById('tvPlayBtn').innerHTML='&#9646;&#9646;';}).catch(()=>{});
+        }, {once: true});
+      }
+    }
+    const savedBooks = await dbGet('books');
+    if (savedBooks && savedBooks.length) {
+      savedBooks.forEach(b => bookFiles.push(b));
+      renderBooks();
+    }
+    const savedBGM = await dbGet('bgm');
+    if (savedBGM) {
+      const a = document.getElementById('bgmAudio');
+      a.src = savedBGM.data;
+      document.getElementById('bgmTitle').textContent = savedBGM.name;
+      document.getElementById('bgmBtn').disabled = false;
+    }
+    const savedFace = await dbGet('face');
+    if (savedFace) {
+      document.getElementById('yongPhotoImg').src = savedFace;
+      document.getElementById('yongPhoto').classList.add('has-img');
+    }
+  } catch(e) { console.warn('Restore error:', e); }
+  // Autoplay needs user interaction for audio; unmute video + start BGM on first click
+  document.addEventListener('click', function autoplayOnce() {
+    const v = document.getElementById('tvVideo');
+    if (v && v.src && v.paused) { v.muted = false; v.play().catch(()=>{}); document.getElementById('tvPlayBtn').innerHTML='&#9646;&#9646;'; }
+    else if (v && v.muted) { v.muted = false; }
+    const a = document.getElementById('bgmAudio');
+    if (a && a.src && a.paused && !document.getElementById('bgmBtn').disabled) {
+      a.play().then(()=>{bgmOn=true;document.getElementById('bgmBtn').innerHTML='&#9646;&#9646;';}).catch(()=>{});
+    }
+    document.removeEventListener('click', autoplayOnce);
+  });
+}
+init();
+</script>
+<div class="book-tooltip" id="bookTT"></div>
+</body>
+</html>
